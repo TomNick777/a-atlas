@@ -1,0 +1,131 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+node_modules/
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# env files (can opt-in for committing if needed)
+.env*
+!.env.example
+
+# python
+.venv/
+.pytest_cache/
+
+# Local service logs and test-run output.
+/services/*/*.log
+/services/*/*.err
+/services/*/reports_pytest_baseline.txt
+
+# regenerable fetch cache
+/data/raw/
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# laya lab(模型权重与大二进制不进 git;冻结凭 manifest 的 sha + 数据内嵌 judgeText)
+/models/
+/data/lab_snapshot/
+/data/train/train_items.pt
+/data/train/v3_train_items.pt
+/data/train/v4_train_items.pt
+/data/train/v4_1_train_items_*.pt
+/data/train/v4_v3_pool_scores.cache.json
+# 检索基准专用向量(可由 scripts/build_vectors_variant.ts 再生)
+/data/vectors_judge.f32
+
+# search replay log(本地行为数据,append-only,不进 git;审计走 search:export-review)
+/data/search_log/
+# 增量 embedding 缓存(可 --force 再生)
+/data/vectors_profile_v2.hashes.json
+/data/vectors_profile_v2.hashes.order.json
+
+# python
+__pycache__/
+
+# stage3 source cache(PDF 可由 cninfo URL 重下;manifest/证据/能力入库)
+/data/sources/
+# stage3 增量 embedding 缓存
+/data/vectors_profile_v3.hashes.json
+/data/vectors_profile_v3.hashes.order.json
+# corpus 增量 embedding 缓存(可 --force 再生)
+/data/vectors_corpus.hashes.json
+/data/vectors_corpus.hashes.order.json
+data/dev_stage3.log
+
+# live sidecar runtime logs (latency evidence kept on disk, aggregated numbers live in reports)
+reports/v4_1_eval/*.log
+
+# product telemetry runtime data(真实运行产物 append-only,不进 git:events/incidents/rollups/exports/probe;
+# 正式验收报告在 reports/PRODUCT_TELEMETRY_*.md,研究导出走 telemetry:export 本地留存)
+data/telemetry/
+reports/telemetry/
+
+# local embedding model cache (copied from the warmed trawler install)
+/.cache/
+
+# local probes
+/.local/
+
+# 用户本地运行数据（自选/笔记等历史文件留在磁盘，仅停止引用；不进 git）
+/data/user/
+
+# stock-data service 运行日志（Refocus 后唯一常驻 Python 组件）
+services/stock-data/server.log
+services/stock-data/server.err
+atlas-dev.log
+.next-build.log
+reports/CI_RUNTIME/
+
+# Phase 4 运行证据产物（benchmark/chaos 原始件，结论写进报告）
+reports/PHASE4_RUNTIME/
+
+# 已退役服务的本地任务队列文件（历史数据留在磁盘，仅停止引用）
+data/atlas-jobs/
+.next-run.log
+
+# Market discovery runtime snapshots; committed market artifacts remain replay inputs.
+/data/market-runtime/
+/reports/MARKET_M2_RUNTIME/
+
+# Public repository contains code only; private datasets stay on disk.
+/data/
+/reports/
+/quality/discovery/*.json
+/quality/discovery/snapshots/
+/quality/discovery/reviews/
+/tests/fixtures/semantic/*.json
+/tests/fixtures/semantic/judge/
+/tests/fixtures/semantic/retrieval/
+/tests/fixtures/stockdata/
+/evaluation/discovery/*.json

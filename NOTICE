@@ -1,0 +1,10 @@
+A-Atlas | A股星图
+Copyright 2026 tomra
+
+Original A-Atlas code is licensed under Apache-2.0.
+Third-party components retain their own licenses and copyrights.
+See THIRD_PARTY_NOTICES.md and vendor/a-stock-data/LICENSE.
+
+The project code license does not grant redistribution rights to third-party
+company disclosures, source excerpts, market data or other dataset contents.
+See DATA_NOTICE.md.

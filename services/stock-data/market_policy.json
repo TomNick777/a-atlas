@@ -1,0 +1,14 @@
+{
+  "version": "market-snapshot-policy-1",
+  "registeredAt": "2026-10-02",
+  "batchSize": 50,
+  "workers": 4,
+  "refreshSeconds": 60,
+  "retrySeconds": 60,
+  "maxCollectionSeconds": 30,
+  "maxSourceAgeSeconds": 120,
+  "maxFutureSeconds": 5,
+  "minValidCoverage": 0.98,
+  "sourceRatioRankingEnabled": false,
+  "sourceRatioReason": "upstream field49 is preserved verbatim; source calculation baseline is not verified, so it is not a ranking/filter capability"
+}

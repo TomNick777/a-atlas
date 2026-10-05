@@ -1,0 +1,3 @@
+#!/bin/sh
+# Check all reachable history before sending any Git object to the public remote.
+exec python scripts/check_publication.py

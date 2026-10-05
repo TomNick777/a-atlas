@@ -1,0 +1,40 @@
+name: windows-runtime
+
+on:
+  push:
+    branches: [master, "atlas/**"]
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+concurrency:
+  group: windows-runtime-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  web-tests:
+    name: code-only publication / typecheck / unit / build
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: verify public index and history
+        run: npm run publication:check
+      - name: install Python test dependencies
+        run: pip install requests pandas
+      - name: install
+        run: npm ci
+      - name: typecheck
+        run: npm run typecheck
+      - name: offline code tests (private dataset suites remain local)
+        run: npm run test:public
+      - name: build without private data
+        run: npm run build

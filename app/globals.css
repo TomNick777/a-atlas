@@ -1,0 +1,123 @@
+@import "tailwindcss";
+
+:root { --bg: #070806; --text: #f4f1ea; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+
+/* Two opposed light trails orbit a masked border; the field stays opaque. */
+@property --rim-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+.composer-beam {
+  width: fit-content;
+  border-radius: 22px;
+  box-shadow: 0 18px 48px #0008;
+}
+.composer {
+  --energy: 0;
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: min(660px, calc(100vw - 40px));
+  padding: 13px 14px 13px 22px;
+  border: 1px solid #8e8baa40;
+  border-radius: 22px;
+  background: #090b10;
+  box-shadow: inset 0 1px 0 #ffffff05;
+}
+.perimeter-edge, .perimeter-glow {
+  --rim-angle: 0deg;
+  position: absolute;
+  pointer-events: none;
+  inset: -1px;
+  border-radius: inherit;
+  animation: perimeter-lap 7s linear infinite;
+}
+.perimeter-edge {
+  padding: 1.5px;
+  background: conic-gradient(from var(--rim-angle), transparent 0deg, #ff765e20 35deg, #ff846bcc 65deg, #fff0d7 83deg, transparent 94deg, transparent 180deg, #6763ff25 215deg, #7e8cffdd 245deg, #dcf0ff 263deg, transparent 274deg);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+}
+.perimeter-glow {
+  z-index: -1;
+  opacity: calc(0.9 + var(--energy) * 0.1);
+  filter: blur(11px);
+  transition: opacity 500ms;
+}
+.perimeter-glow::before {
+  content: "";
+  position: absolute;
+  inset: -8px;
+  padding: 14px;
+  border-radius: inherit;
+  background: conic-gradient(from var(--rim-angle), transparent 0deg, #ff5a4220 40deg, #ff876dee 73deg, #ffddbd 83deg, transparent 99deg, transparent 180deg, #624fff30 220deg, #627fffff 253deg, #aedbff 263deg, transparent 279deg);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+}
+/* The glow's pseudo-element reads the angle animated on its parent. */
+.perimeter-glow::before { --rim-angle: inherit; }
+.composer:focus-within .perimeter-glow { opacity: 1; }
+.composer[data-busy="true"] .perimeter-edge,
+.composer[data-busy="true"] .perimeter-glow { animation-duration: 2.8s; }
+@keyframes perimeter-lap { to { --rim-angle: 360deg; } }
+.search-signal { display: flex; align-items: center; gap: 3px; height: 24px; color: #85d8e8; transition: opacity 300ms; }
+.search-signal i { width: 2px; height: 6px; border-radius: 2px; background: currentColor; box-shadow: 0 0 7px #70dcf44d; transform: scaleY(calc(1 + var(--energy) * 0.8)); transition: transform 300ms, opacity 300ms; }
+.search-signal i:nth-child(2) { height: 16px; }
+.search-signal i:nth-child(3) { height: 11px; }
+.search-signal i:nth-child(4) { height: 5px; }
+/* The moving rim carries the busy state. */
+.composer[data-busy="true"] .search-signal { opacity: 0; }
+.search-input {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  padding: 8px 0;
+  background: transparent;
+  color: #edf5fa;
+  outline: none;
+  font-size: 15px;
+  letter-spacing: 0.03em;
+  caret-color: #91eafa;
+}
+.search-input::placeholder { color: #8798a6; }
+.clear-search { position: relative; display: grid; place-items: center; width: 24px; height: 30px; color: #92a5b7; font-size: 20px; font-weight: 300; cursor: pointer; transition: color 200ms; }
+.clear-search:hover { color: #e3faff; }
+/* Send: plain primary dot — solid fill, up arrow; swaps to a stop square while a search runs. */
+.orb {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 50%;
+  background: #f4f1ea;
+  color: #0b0d10;
+  cursor: pointer;
+  transition: background 150ms, opacity 150ms;
+}
+.orb:enabled:hover { background: #dddad4; }
+.orb:enabled:active { background: #cfcbbf; }
+.orb:disabled { opacity: 0.38; cursor: default; }
+.orb-arrow, .orb-stop { width: 16px; height: 16px; }
+.orb-stop { color: #0b0d10; }
+button:focus-visible { outline: 2px solid #94deef; outline-offset: 4px; }
+@media (max-width: 480px) {
+  .composer { padding-left: 14px; gap: 10px; }
+  .search-input { font-size: 14px; letter-spacing: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .composer *, .composer { animation: none !important; transition: none !important; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .perimeter-edge, .perimeter-glow { --rim-angle: 35deg; animation: none !important; }
+}

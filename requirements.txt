@@ -1,0 +1,3 @@
+akshare>=1.16.0
+pandas>=2.2.0
+requests>=2.32.0  # a-stock-data generated module + stock-data service (refocus)

@@ -1,0 +1,15 @@
+# digest 钉字节的确定性 artifact：禁止任何换行转换（core.autocrlf 坑）
+.githooks/* text eol=lf
+data/company-corpus/companies.jsonl -text
+data/source_facts/facts.jsonl -text
+data/market/ingest.json -text
+data/market/daily/*.jsonl -text
+data/market/quote/*.json -text
+data/market/state/*.jsonl -text
+data/market/state/manifest.json -text
+
+# All versioned data and frozen quality artifacts retain exact bytes across Windows clones.
+data/** -text
+quality/discovery/** -text
+
+# Private datasets are excluded from the public repository, including LFS.

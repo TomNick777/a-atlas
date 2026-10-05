@@ -1,0 +1,99 @@
+{
+  "upstream": "https://github.com/simonlin1212/a-stock-data",
+  "commit": "f814dcfe209dd7958f4858f9d878d591ee85fb56",
+  "version": "3.10.0",
+  "syncedAt": "2026-10-02",
+  "skillSha256": "4d23acf79e86be4241024759ba966d6a43fc5944b53019890ebd229807535cea",
+  "blocks": [
+    {
+      "root": "get_prefix",
+      "defined": [
+        "get_prefix"
+      ]
+    },
+    {
+      "root": "norm_ticker",
+      "defined": [
+        "_natural_market",
+        "norm_ticker",
+        "em_market_code",
+        "em_secid",
+        "to_joinquant"
+      ]
+    },
+    {
+      "root": "em_get",
+      "defined": [
+        "em_get",
+        "eastmoney_datacenter"
+      ]
+    },
+    {
+      "root": "tencent_quote",
+      "defined": [
+        "tencent_quote"
+      ]
+    },
+    {
+      "root": "eastmoney_reports",
+      "defined": [
+        "eastmoney_reports",
+        "download_pdf"
+      ]
+    },
+    {
+      "root": "sina_financial_report",
+      "defined": [
+        "sina_financial_report"
+      ]
+    },
+    {
+      "root": "cninfo_announcements",
+      "defined": [
+        "_cninfo_ts_to_date",
+        "_cninfo_orgid",
+        "cninfo_announcements"
+      ]
+    },
+    {
+      "root": "_v39_http",
+      "defined": [
+        "_v39_http",
+        "_v39_json",
+        "_v39_date",
+        "_v39_src_date",
+        "_v39_num",
+        "_v39_rows",
+        "_v39_labels",
+        "_v39_req_num",
+        "_v39_contract",
+        "_v39_count",
+        "_v39_frame",
+        "_em_datacenter_strict",
+        "_em_day"
+      ]
+    },
+    {
+      "root": "tdx_daily_package",
+      "defined": [
+        "_tdx_parse_package",
+        "tdx_daily_package"
+      ]
+    }
+  ],
+  "roots": [
+    "get_prefix",
+    "norm_ticker",
+    "em_get",
+    "tencent_quote",
+    "eastmoney_reports",
+    "sina_financial_report",
+    "cninfo_announcements",
+    "_v39_http",
+    "tdx_daily_package"
+  ],
+  "localProjections": {
+    "tencent_quote_snapshot": "atlas-tencent-raw-1"
+  },
+  "generatedSha256": "e026052dad0dfeb50fca6e4650d9aaf493f613772aa531ec41f607bc422c558b"
+}

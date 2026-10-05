@@ -1,7 +1,7 @@
 # PROJECT_STATE
 
 > **统一正式仓库（2026-10-04）**：以验收提交 `2a45dca` 建立干净初始历史；旧提交完整归档。
-> 正式目录保持 `D:\workspace\a-atlas`、分支 `master`，计划远端 `TomNick777/a-atlas`。
+> 正式目录保持 `D:\workspace\a-atlas`、分支 `master`；2026-10-05仅代码主线已推送至 `TomNick777/a-atlas` 的master，首轮GitHub Windows CI全部通过，远端默认分支由main切换至master仍待完成。
 > 原创代码 Apache-2.0。2026-10-05用户选择仅公开代码：数据、真实响应夹具和历史评测产物
 > 留在本机与归档，公开历史不包含这些内容，也不上传LFS数据对象。以下旧阶段记录中的
 > committed/CI描述保留当时背景；当前公开范围与验收以 `docs/PUBLIC_CODE_RELEASE.md` 为准。

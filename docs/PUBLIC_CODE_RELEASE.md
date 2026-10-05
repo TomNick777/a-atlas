@@ -2,6 +2,8 @@
 
 用户尚未核实真实数据的公开再分发授权，因此当前发布范围为原创代码、测试代码、架构文档与合法保留的vendor代码。默认主线保持 `master`；同一正式目录开发并同步GitHub，不维护另一份生产源码。
 
+2026-10-05首次代码发布已推送至 [TomNick777/a-atlas 的 master](https://github.com/TomNick777/a-atlas/tree/master)，提交 `9406ed5`。[首次GitHub Windows CI](https://github.com/TomNick777/a-atlas/actions/runs/37255245244)全部通过。本地主线已跟踪 `origin/master`；远端默认分支仍暂为初始化的main，需要在仓库Settings → General → Default branch选择master，避免首页仍展示初始化README。
+
 ## 留在本地
 
 - 全部 `data/`：公司池、事实与披露摘录、语料、行情/交易日历、向量、训练/评测、原始快照及运行数据。

@@ -6,33 +6,100 @@
 
 ## 运行
 
-需要 Node.js 24、Python 3.12。公开仓库只包含代码，不包含公司数据、披露摘录、语料、向量、行情、训练数据、真实响应夹具和历史评测产物。Git LFS 不用于公开分发这些数据。本机已有数据保持原样；新克隆可以构建，但尚不能重现完整公司发现结果。
+需要 Git、Node.js 24、Python 3.12；不需要GPU、Laya或本地判断模型。公开仓库只包含代码，不包含公司数据、披露摘录、语料、向量、行情、训练数据、真实响应夹具和历史评测产物。Git LFS 不用于公开分发这些数据。**启动两个服务不等于已具备公司发现数据**：空仓库可以启动并显示缺少数据的提示，完整搜索还需准备下述输入。
+
+首次克隆显式选择 `master`；已有正式项目直接进入原目录，不再克隆、不覆盖本机数据。以下命令以Windows PowerShell为例，全部从仓库根目录执行：
 
 ```powershell
+git clone --branch master https://github.com/TomNick777/a-atlas.git
+Set-Location a-atlas
+node --version                       # 应为 v24.x
+python --version                     # 应为 3.12.x
 npm ci
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -r requirements.txt
-Copy-Item .env.example .env.local
+if (-not (Test-Path .env.local)) { Copy-Item .env.example .env.local }
+git config core.hooksPath .githooks
 ```
 
-在 `.env.local` 中配置 `TYPESAFE_API_KEY`。用两个终端分别启动 Data 与 Web，Data 终端需先激活 `.venv`：
+`.env.local` 的 `ATLAS_DATA_URL` 保持 `http://127.0.0.1:8920`。`TYPESAFE_API_KEY` 可以留空，搜索如实退回确定性检索；用户提供自己的key时才启用Jev Cloud。保留已有 `.env.local`，不要打印key，日常启动不设置 `JEV_BASE_URL`。
+
+有本机数据时先复用；若 `data/companies.json`、`data/company-corpus/companies.jsonl`、其 `manifest.json` 与 `data/vectors_corpus.f32` 是同一批完整输入，不要为了启动重新采集或改写它们。缺失数据有两条路径：恢复可使用的本地数据包（见 [数据准备说明](docs/PUBLIC_CODE_RELEASE.md)），或自行采集基础资料并构建基础发现索引。在已激活 `.venv` 的终端、确认需要联网采集后执行：
 
 ```powershell
-python -u services/stock-data/server.py --port 8920
+npm run data                          # 公司基础资料与基础向量；访问数据源和模型下载站
+npm run corpus:update                 # 确定性构建 corpus，再生成 corpus 向量
+npm run corpus:check                  # 核对新生成语料
 ```
+
+自行采集仅生成当次取得资料的索引，不恢复既有年报/公告/官网证据扩展、冻结质量结果或历史行情，不能宣称复现了原5567家公司基线。采集/下载失败时报告具体失败步骤和缺失输入，不造公司池、不写示例数字、不换判断模型。首次嵌入需取得 `Xenova/bge-small-zh-v1.5`，缓存位于 `.cache/huggingface/`；离线环境需预先准备完整兼容缓存，测试夹具不能当生产模型。
+
+用两个终端启动服务，各自进入同一仓库根目录。终端A使用本仓虚拟环境启动Data：
+
+```powershell
+.\.venv\Scripts\python.exe -u services/stock-data/server.py --port 8920
+```
+
+终端B启动Web：
 
 ```powershell
 npm run dev -- --port 3400
 ```
 
-打开 http://localhost:3400 。生产运行先 `npm run build`，再用 `npm run start -- --port 3400` 启动 Web，Data 启动方式相同。首次使用嵌入模型会下载文件到本地缓存。
+终端C或浏览器检查：
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:8920/health
+Invoke-RestMethod http://localhost:3400/api/health
+```
+
+两个响应的 `service` 应分别为 `a-atlas-data`、`a-atlas-web`。Web的HTTP 200只证明Web活着，还要检查 `status` 和 `components`；没有key时Jev降级符合预期，不能据此说核心服务启动失败。打开 http://localhost:3400 ，有数据时应能看到公司牌、搜索并打开 `/stock/<6位代码>`，无数据时应看到缺少公司数据提示。公司页四个数据块来自上游，可能按EMPTY / UNAVAILABLE / ERROR降级，不能因健康端点正常就宣称上游数据完整。
+
+生产模式使用 `npm run build`，然后 `npm run start -- --port 3400`；Data命令相同。停止本次启动的进程用对应终端的Ctrl+C；若端口被占，先确认占用者和项目身份，不结束无关进程。
+
+行情发现另外需要有效的 `data/market-calendar/<年份>.json` 和对应行情输入/快照。先恢复已核对的本地交易日历与行情数据，再按下文行情章节维护；缺失这些输入时基础业务发现仍可用，行情查询如实不可用，不通过猜交易日或编数字补齐。
 
 `npm run data` 拉取全部 A 股上市公司（沪市主板、深市主板、创业板、科创板、北交所，约 5,5XX 家），生成 `data/companies.json`，再用 `bge-small-zh-v1.5` 做本地向量。第一次会下载模型，需要几分钟。已经缓存过的请求不会重抓；抓取按 `--shard i/n` 分进程跑（akshare 的 py_mini_racer 不能在单进程里并发）。
 
 该命令用于维护原始数据，不会重建既有年报/公告证据扩展和冻结基线。取得并核对可使用的数据后，按 [本地数据准备说明](docs/PUBLIC_CODE_RELEASE.md) 恢复输入；更新发现语料走 `npm run corpus:update`。没有数据时首页如实提示缺少公司数据，不加载演示公司池。
 
 公司名单来自交易所 A 股列表（`stock_info_a_code_name`，只有沪深京上市公司，不含 B 股、基金、债券、退市证券）；申万一级行业来自申万宏源「申万指数」成分表（`sw_index_first_info` + `index_component_sw`，**2021 版分类，31 个一级行业**）。申万指数不含北交所公司，次新股可能尚未入类——这些公司的 `swLevel1Industry` 是 `unknown`，不用其他行业分类（东财/同花顺/证监会）冒充。
+
+## 可直接交给 Agent 的启动任务
+
+复制下面这段作为Agent任务。详细规则以本仓 `AGENTS.md` 为准，执行现有命令即可，不需要改产品或搜索算法：
+
+```text
+请把 A-Atlas 在本机跑起来，并验证实际可用程度。先读 AGENTS.md、README.md
+和 docs/PUBLIC_CODE_RELEASE.md。已有项目用原目录；新环境克隆
+https://github.com/TomNick777/a-atlas.git 的 master 分支。检查 Git、Node 24、
+Python 3.12 和 git status；在仓库根目录 npm ci，建立/复用 .venv，安装
+requirements.txt。只在缺失时从 .env.example 建立 .env.local，保留已有配置。
+默认不添加 Jev key，不运行 LIVE benchmark；只有用户提供key并要求启用时
+才使用 TYPESAFE_API_KEY，不输出key，不设置生产 JEV_BASE_URL。
+
+公开仓库没有真实数据。先检查 companies.json、company-corpus 的JSONL/manifest
+与 vectors_corpus.f32 是否完整且对应，优先复用本机数据。缺失时先验证空应用
+可启动并如实报告；用户要求准备基础公司发现数据时，在激活 .venv 的终端依次
+执行 npm run data、npm run corpus:update、npm run corpus:check。联网/模型缓存
+不可用则说明阻塞及缺失输入；不要伪造数据、改语料、改检索或添加判断回落。
+这些命令不重建原冻结基线；行情发现还需有效交易日历及真实行情输入。
+
+保持两个服务运行：Data用 .venv/Scripts/python.exe -u
+services/stock-data/server.py --port 8920；Web用 npm run dev -- --port 3400。
+两个进程的工作目录都是仓库根目录。探测 :8920/health 和 :3400/api/health，
+核对service身份、components和status；打开首页，数据齐备时用一次不带行情
+条件的公司发现查询验证公司牌和公司页，没有key时应明确显示检索降级。
+不得把HTTP 200、空首页或代码测试通过当作完整公司发现验收。
+
+在激活 .venv 的终端运行 npm run test:public、npm run typecheck 和
+npm run publication:check；公开克隆不要运行依赖私有数据的完整 npm test。
+如需生产运行，再 npm run build 并 npm run start -- --port 3400。
+最后报告目录、分支、服务地址/进程、探活结果、数据及模型准备情况、Jev是否
+启用、通过的检查和仍不可用的功能。不上传私有数据、不启动Laya/GPU服务、
+不重启无关进程；清理本次临时验证产物，保留需要继续使用的服务。
+```
 
 没有 `TYPESAFE_API_KEY` 时搜索仍能跑：没有语义判断，结果直接由确定性检索排序给出，响应里 `degraded: true`、`judge.provider: "none"`、`decidedBy: "retrieval"`，页面上明示「语义判断服务暂不可用，当前结果使用基础检索排序」。A-Atlas **不回落任何本地判断模型**。Key 放在 `.env.local`，不要写进源码。
 

@@ -79,6 +79,9 @@ export default async function UsagePage({ searchParams }: { searchParams: Promis
         />
       </Section>
 
+      <Section title="Judges">
+        {Object.entries(summary.judges).map(([provider, row]) => <Row key={provider} label={provider} value={`${row.calls} calls · ${row.tokens} tokens`} hint={`${row.runtimeModels.join(" / ")} · ${row.cloudCostUsd === null ? "本地推理，云账单不适用" : `$${row.cloudCostUsd.toFixed(6)} estimated`}`} />)}
+      </Section>
       <Section title="Jev">
         <Row label="calls / search" value={jev.callsPerSearch ?? "—"} hint={`共 ${jev.calls} 次 capability 调用`} />
         <Row label="tokens / search" value={jev.tokensPerSearch ?? "—"} hint={`共 ${jev.tokensTotal} tokens`} />

@@ -1,4 +1,4 @@
-import type { EligibilityBatch, EligibilityDecision } from "../jev/capabilities";
+import type { EligibilityBatch, EligibilityDecision } from "../intelligence/capabilities";
 import type { MarketSelectionScope, HybridExecution } from "./contracts";
 
 export const MARKET_SELECTION_BUDGET = { batchSize: 50, maxScanned: 1000, maxBatches: 20, maxMs: 30000, maxEstimatedCostUsd: 0.05 } as const;

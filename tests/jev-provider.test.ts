@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
-import { JevCloudProvider, type JevTimingOverrides } from "../lib/jev/cloud";
-import { JEV_TIMING, type JevOutcome } from "../lib/jev/provider";
+import { JevCloudProvider, type JevTimingOverrides } from "../lib/intelligence/runtime";
+import { JEV_TIMING, type JevOutcome } from "../lib/intelligence/contracts";
 import type { Company } from "../lib/types";
 
 /**
@@ -298,7 +298,7 @@ describe("judge() over the provider — degraded result (§10/§11)", () => {
   it("marks the verdict not-live with the provider's own reason when the cloud refuses", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response("boom", { status: 500 })));
     setProviderForJudge(providerWithKey());
-    const { judge } = await import("../lib/jev/judge");
+    const { judge } = await import("../lib/intelligence/judge");
     const verdict = await judge("银行", companies);
     expect(verdict.live).toBe(false);
     expect(verdict.outcome).toBe<JevOutcome>("server_error");
@@ -313,7 +313,7 @@ describe("judge() over the provider — degraded result (§10/§11)", () => {
       return Response.json({ model: "jev-1.13.0", answers: { c0: { noul: 1 }, c1: { noul: 0 } }, usage: { input_tokens: 10, output_tokens: 1 } });
     }));
     setProviderForJudge(providerWithKey());
-    const { judge } = await import("../lib/jev/judge");
+    const { judge } = await import("../lib/intelligence/judge");
     const many = Array.from({ length: 150 }, (_, index) => ({ ...companies[index % 2], code: `6${String(index).padStart(5, "0")}` })) as Company[];
     const verdict = await judge("银行", many);
     expect(verdict.chunks).toBe(2);
@@ -326,7 +326,7 @@ describe("judge() over the provider — degraded result (§10/§11)", () => {
     const fetchMock = vi.fn(async () => okResponse());
     vi.stubGlobal("fetch", fetchMock);
     setProviderForJudge(providerWithKey());
-    const { judge } = await import("../lib/jev/judge");
+    const { judge } = await import("../lib/intelligence/judge");
     const verdict = await judge("银行", []);
     expect(verdict.live).toBe(true);
     expect(verdict.chunks).toBe(0);
@@ -336,21 +336,21 @@ describe("judge() over the provider — degraded result (§10/§11)", () => {
 
 /** judge()/classify() resolve the provider through the singleton seam. */
 function setProviderForJudge(provider: JevCloudProvider) {
-  return import("../lib/jev/cloud").then(({ setJevProviderOverride }) => {
+  return import("../lib/intelligence/runtime").then(({ setJevProviderOverride }) => {
     setJevProviderOverride(provider);
     return provider;
   });
 }
 
 describe("runtime decoupling — structural proof (§1/§3)", () => {
-  const runtimeFiles = ["lib/jev/cloud.ts", "lib/jev/judge.ts", "lib/jev/classify.ts", "lib/jev/provider.ts", "lib/jev/mock.ts", "lib/env.ts", "lib/search/pipeline.ts", "scripts/atlas_start.cmd", "app/api/health/route.ts", "lib/telemetry/runtime.ts", "lib/telemetry/contract.ts", "lib/atlas/runtime.ts", "scripts/jev_stub.mjs", ".github/workflows/windows-runtime.yml"];
+  const runtimeFiles = ["lib/intelligence/runtime.ts", "lib/intelligence/judge.ts", "lib/intelligence/classify.ts", "lib/intelligence/contracts.ts", "lib/intelligence/mock.ts", "lib/env.ts", "lib/search/pipeline.ts", "scripts/atlas_start.cmd", "app/api/health/route.ts", "lib/telemetry/runtime.ts", "lib/telemetry/contract.ts", "lib/atlas/runtime.ts", "scripts/jev_stub.mjs", ".github/workflows/windows-runtime.yml"];
 
   it("has no Laya transport module at all", () => {
-    expect(() => readFileSync("lib/jev/client.ts", "utf8")).toThrow();
+    expect(() => readFileSync("lib/intelligence/client.ts", "utf8")).toThrow();
   });
 
-  it("names neither Laya nor its port anywhere in the runtime path", () => {
-    for (const file of runtimeFiles) {
+  it("does not import a local transport into the cloud provider", () => {
+    for (const file of ["lib/intelligence/providers/jev/cloud.ts"]) {
       const text = readFileSync(file, "utf8");
       // A real dependency needs a real identifier: a config var, a URL, a module
       // or an import. Prose that says "we no longer use Laya" is not one.
@@ -358,13 +358,15 @@ describe("runtime decoupling — structural proof (§1/§3)", () => {
     }
   });
 
-  it("the judge exposes one provider and one test seam, nothing else", async () => {
-    const cloud = await import("../lib/jev/cloud");
+  it("exposes explicit model selection without automatic fallback", async () => {
+    const cloud = await import("../lib/intelligence/runtime");
     const exports = Object.keys(cloud).sort();
     expect(exports).toContain("JevCloudProvider");
     expect(exports).toContain("jevProvider");
     expect(exports).toContain("setJevProviderOverride");
     // The guard that matters: no second transport, no fallback, no alias for Laya.
-    expect(exports.join(","), "judge module exports").not.toMatch(/laya|sidecar|fallback|second|backup/i);
+    expect(exports).toContain("withJudgeProvider");
+    expect(exports).toContain("getLayaProvider");
+    expect(exports.join(","), "judge module exports").not.toMatch(/fallback|second|backup/i);
   });
 });

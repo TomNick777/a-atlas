@@ -6,7 +6,7 @@ import { loadDataset } from "../companies";
 import { parseQuerySpec, exclusionCompanyPatterns, type QuerySpec } from "../search/querySpec";
 import { constraintsFromQuery, industryHitsDrop } from "../search/constraints";
 import { retrieveV3 } from "../search/v3";
-import { expectedCloudModel, runSemanticMatch, subjectsOf } from "../jev/capabilities";
+import { expectedCloudModel, runSemanticMatch, subjectsOf } from "../intelligence/capabilities";
 import { fuse, matchCount, SHOWN } from "../search/score";
 import { embedQuery, DIM, dot } from "../text/embed";
 import { tokensOf } from "../text/tokenize";

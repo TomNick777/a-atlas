@@ -9,7 +9,7 @@ import {
   subjectsOf,
   type EvidenceExplanationRequest,
   type JudgementSubject,
-} from "@/lib/jev/capabilities";
+} from "@/lib/intelligence/capabilities";
 
 /**
  * Internal Jev capability surface (Phase 3.3 §12) — NOT a product endpoint.

@@ -98,9 +98,9 @@ export default async function TracePage({ params }: { params: Promise<{ id: stri
         </Block>
       )}
 
-      {view.jevCalls.length > 0 && (
-        <Block title={`Jev calls（${view.jevCalls.length}）`}>
-          {view.jevCalls.map((call) => (
+      {view.judgeCalls.length > 0 && (
+        <Block title={`Judge calls（${view.judgeCalls.length}）`}>
+          {view.judgeCalls.map((call) => (
             <Pre key={String(call.payload.callId ?? call.eventId)} data={call.payload} />
           ))}
         </Block>

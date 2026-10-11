@@ -2,7 +2,7 @@ import { writeFileSync } from "node:fs";
 import path from "node:path";
 import { loadDataset } from "../lib/companies";
 import { retrieveV3 } from "../lib/search/v3";
-import { judgeGraded } from "../lib/jev/judge";
+import { judgeGraded } from "../lib/intelligence/judge";
 import { requireLayaLane } from "./require-laya-lane";
 
 requireLayaLane("residual_triage.ts");
@@ -16,7 +16,7 @@ requireLayaLane("residual_triage.ts");
  *   parseQuerySpec -> retrieveV3 (BM25 ⊕ bge RRF60, ontology hard filters, Top200)
  *   -> judgeGraded (Laya V4.1 0-3 head via the running sidecar, LAYA_URL) —
  * and dumps per-layer evidence for offline triage. It changes nothing in the
- * search stack; it runs the same functions the API runs (lib/search/*, lib/jev/*).
+ * search stack; it runs the same functions the API runs (lib/search/*, lib/intelligence/*).
  *
  * The pool file carries each candidate's searchText so the V3 arm can be graded
  * offline later (same pool, no re-retrieval).

@@ -41,11 +41,11 @@ function activeSources(): Map<string, string> {
   return files;
 }
 
-/** The app runtime tree: lib/ + app/, with lib/jev itself exempt (it IS the seam).
+/** The app runtime tree: lib/ + app/, with lib/intelligence itself exempt (it IS the seam).
  * Tests and scripts drive the recorded/tee transport by design and are excluded. */
 function inRuntimeTree(file: string): boolean {
   const normalized = file.replace(/\\/g, "/");
-  if (normalized.startsWith("lib/jev/")) return false;
+  if (normalized.startsWith("lib/intelligence/")) return false;
   return normalized.startsWith("lib/") || normalized.startsWith("app/");
 }
 
@@ -94,10 +94,10 @@ describe("architecture boundary — Jev is the only cloud consumer (§1)", () =>
     const offenders: string[] = [];
     for (const [file, src] of activeSources()) {
       if (!src.includes("chat/completions")) continue;
-      if (file.startsWith("lib/jev") || file.startsWith("lib\\jev")) continue;
+      if (file.startsWith("lib/intelligence") || file.startsWith("lib\\intelligence")) continue;
       offenders.push(file);
     }
-    expect(offenders, `chat clients outside lib/jev: ${offenders.join(", ")}`).toEqual([]);
+    expect(offenders, `chat clients outside lib/intelligence: ${offenders.join(", ")}`).toEqual([]);
   });
 
   it("the query path has exactly one compiler and no LLM on it", () => {
@@ -112,24 +112,24 @@ describe("architecture boundary — Jev is the only cloud consumer (§1)", () =>
 describe("architecture boundary — the capability seam is the only intelligence entrance (Phase 3.3 §2/§8)", () => {
   const sources = activeSources();
 
-  /** lib/ and app/ may import exactly ONE lib/jev module: the seam. Tests and
+  /** lib/ and app/ may import exactly ONE lib/intelligence module: the seam. Tests and
    * scripts drive the recorded/tee transport by design (fixture capture,
    * live suites, contract tests) and are out of scope here. */
-  it("lib/ and app/ import Jev only through lib/jev/capabilities", () => {
+  it("lib/ and app/ import Jev only through lib/intelligence/capabilities", () => {
     const offenders: string[] = [];
     for (const [file, src] of sources) {
       if (!inRuntimeTree(file)) continue;
-      for (const match of src.matchAll(/from\s+["'][^"']*lib\/jev\/(?!capabilities)[^"']*["']/g)) {
+      for (const match of src.matchAll(/from\s+["'][^"']*lib\/intelligence\/(?!capabilities)[^"']*["']/g)) {
         offenders.push(`${file} :: ${match[0]}`);
       }
-      for (const match of src.matchAll(/from\s+["'](\.\.?\/)+jev\/(?!capabilities)[^"']*["']/g)) {
+      for (const match of src.matchAll(/from\s+["'](\.\.?\/)+intelligence\/(?!capabilities)[^"']*["']/g)) {
         offenders.push(`${file} :: ${match[0]}`);
       }
     }
     expect(offenders, `direct Jev imports outside the seam: ${offenders.join("; ")}`).toEqual([]);
   });
 
-  it("SystemOne wire knowledge stays inside lib/jev", () => {
+  it("SystemOne wire knowledge stays inside lib/intelligence", () => {
     const WIRE = [/looking_for/, /how_to_judge/, /SystemOneResponse/, /askNoul|askGraded/, /jevProvider\s*\(/, /JEV_TIMING/, /JEV_PRICE_PER_TOKEN/];
     const offenders: string[] = [];
     for (const [file, src] of sources) {
@@ -138,13 +138,13 @@ describe("architecture boundary — the capability seam is the only intelligence
         if (pattern.test(src)) offenders.push(`${file} :: ${pattern.source}`);
       }
     }
-    expect(offenders, `wire knowledge outside lib/jev: ${offenders.join("; ")}`).toEqual([]);
+    expect(offenders, `wire knowledge outside lib/intelligence: ${offenders.join("; ")}`).toEqual([]);
   });
 
-  it("the deterministic query rails import nothing from lib/jev at all", () => {
+  it("the deterministic query rails import nothing from lib/intelligence at all", () => {
     const rails = ["lib/hybrid/parser-v2.ts", "lib/hybrid/compile.ts", "lib/hybrid/planner.ts", "lib/planner/grammar.ts", "lib/planner/validate.ts", "lib/planner/normalize.ts", "lib/planner/capabilities.ts"];
     for (const file of rails) {
-      expect(readFileSync(file, "utf8"), file).not.toMatch(/from\s+["'][^"']*lib\/jev/);
+      expect(readFileSync(file, "utf8"), file).not.toMatch(/from\s+["'][^"']*lib\/intelligence/);
     }
   });
 });
@@ -158,7 +158,7 @@ describe("architecture boundary — grammar vs semantics (§10/§11/§16)", () =
   });
 
   it("the capability router knows relation syntax, never industry/product/company words", () => {
-    const src = readFileSync(join("lib", "jev", "capabilities", "route.ts"), "utf8");
+    const src = readFileSync(join("lib", "intelligence", "capabilities", "route.ts"), "utf8");
     for (const word of ["机器人", "半导体", "储能", "光模块", "创新药", "消费电子", "AI芯片", "人形机器人", "服务器", "逆变器", "英伟达", "苹果", "华为", "美的", "汇川"]) {
       expect(src, word).not.toContain(word);
     }
@@ -178,11 +178,11 @@ describe("architecture boundary — the frontend presents evidence, never derive
 
   /** UI code speaks EvidenceView. It must not import Jev at all (not even the
    * seam) — judgement enters the UI only through the presented response. */
-  it("components/ never imports lib/jev", () => {
+  it("components/ never imports lib/intelligence", () => {
     const offenders: string[] = [];
     for (const [file, src] of sources) {
       if (!file.replace(/\\/g, "/").startsWith("components/")) continue;
-      if (/from\s+["'][^"']*lib\/jev[^"']*["']/.test(src) || /from\s+["'][^"']*\/jev\/[^"']*["']/.test(src)) {
+      if (/from\s+["'][^"']*lib\/intelligence[^"']*["']/.test(src) || /from\s+["'][^"']*\/jev\/[^"']*["']/.test(src)) {
         offenders.push(file);
       }
     }
@@ -192,7 +192,7 @@ describe("architecture boundary — the frontend presents evidence, never derive
   /** The UI reads server-presented results. Recomputing ranks, evidence
    * selection or term hits in the browser would be a second, unaudited judge. */
   it("components/ only consumes ranking/evidence modules as types, never as logic", () => {
-    const LOGIC = [/from\s+["'][^"']*lib\/(search|hybrid|market|planner)\/[^"']*["']/, /from\s+["'][^"']*lib\/jev[^"']*["']/];
+    const LOGIC = [/from\s+["'][^"']*lib\/(search|hybrid|market|planner)\/[^"']*["']/, /from\s+["'][^"']*lib\/intelligence[^"']*["']/];
     const offenders: string[] = [];
     for (const [file, src] of sources) {
       if (!file.replace(/\\/g, "/").startsWith("components/")) continue;

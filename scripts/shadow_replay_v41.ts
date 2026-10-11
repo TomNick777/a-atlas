@@ -22,7 +22,7 @@ import { writeFileSync, mkdirSync, promises as fsPromises } from "node:fs";
 import path from "node:path";
 import type { Company } from "../lib/types";
 import { loadDataset } from "../lib/companies";
-import { judgeGraded } from "../lib/jev/judge";
+import { judgeGraded } from "../lib/intelligence/judge";
 import { constraintsFromQuery } from "../lib/search/constraints";
 import { fuse, matchCount } from "../lib/search/score";
 import { requireLayaLane } from "./require-laya-lane";

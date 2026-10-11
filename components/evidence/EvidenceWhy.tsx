@@ -8,9 +8,9 @@ import type { EvidenceView } from "@/lib/atlas/evidence";
  * `/api/explain` — each line is a Jev-selected evidence quote, verbatim. The
  * island never composes explanation text itself: the states it can show are
  * the capability's own (ok / insufficient_evidence / unavailable) plus honest
- * transport failure. Copy says Jev 解释, never "AI 认为".
+ * transport failure. Copy says 模型解释, never "AI 认为".
  */
-export function EvidenceWhy({ q, code }: { q: string; code: string }) {
+export function EvidenceWhy({ q, code, searchId }: { q: string; code: string; searchId?: string }) {
   const [state, setState] = useState<"idle" | "loading" | "ready" | "unavailable" | "error">("idle");
   const [payload, setPayload] = useState<ExplainPayload | null>(null);
 
@@ -20,7 +20,7 @@ export function EvidenceWhy({ q, code }: { q: string; code: string }) {
       const response = await fetch("/api/explain", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ q, code }),
+        body: JSON.stringify({ q, code, searchId }),
       });
       const data = (await response.json()) as ExplainPayload & { error?: string };
       if (!response.ok) throw new Error(data.error || "解释暂不可用");
@@ -45,8 +45,8 @@ export function EvidenceWhy({ q, code }: { q: string; code: string }) {
 
   return (
     <div className="mt-3 border-t border-[#ecb03422] pt-2.5">
-      <p className="text-[11px] uppercase tracking-[0.14em] text-[#8d887c]">Jev 解释（逐字引用所选证据）</p>
-      {state === "loading" && <p className="mt-2 text-[12.5px] text-[#8d887c]">正在向 Jev 求证……</p>}
+      <p className="text-[11px] uppercase tracking-[0.14em] text-[#8d887c]">模型解释（逐字引用所选证据）</p>
+      {state === "loading" && <p className="mt-2 text-[12.5px] text-[#8d887c]">正在核对所给证据……</p>}
       {state === "error" && <p className="mt-2 text-[12.5px] text-[#c2803f]">解释暂不可用。依据见上方资料。</p>}
       {state === "unavailable" && (
         <p className="mt-2 text-[12.5px] text-[#c2803f]">解释暂不可用（{unavailableReason(payload)}）。依据见上方资料。</p>
@@ -79,11 +79,11 @@ export function EvidenceWhy({ q, code }: { q: string; code: string }) {
 function unavailableReason(payload: ExplainPayload | null): string {
   if (!payload) return "未知原因";
   const reason = payload.explanation.reason;
-  if (reason === "not_judged") return "本次搜索没有留下 Jev 判断";
+  if (reason === "not_judged") return "本次搜索没有留下 模型判断";
   if (reason === "search_expired") return "搜索结果已过期，重新搜索后再试";
   if (reason === "not_in_answer") return "这家公司不在本次搜索结果里";
-  if (reason) return `Jev 未应答（${reason}）`;
-  return "Jev 未应答";
+  if (reason) return `原判断模型未应答（${reason}）`;
+  return "原判断模型未应答";
 }
 
 type ExplainPayload = {

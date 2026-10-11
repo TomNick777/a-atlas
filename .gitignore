@@ -129,3 +129,6 @@ data/atlas-jobs/
 /tests/fixtures/semantic/retrieval/
 /tests/fixtures/stockdata/
 /evaluation/discovery/*.json
+
+# Unified local Laya environment
+/.venv-laya/

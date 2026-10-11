@@ -2,8 +2,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { compileHybridQuery } from "../lib/hybrid/compile";
 import { runHybridQuery } from "../lib/hybrid/execute";
 import { selectMarketMembers, MARKET_SELECTION_BUDGET } from "../lib/hybrid/market-selection";
-import { runMarketEligibility, resetMarketEligibilityCache, setJevProviderOverride, type EligibilityBatch, type JudgementSubject } from "../lib/jev/capabilities";
-import type { JudgeProvider } from "../lib/jev/provider";
+import { runMarketEligibility, resetMarketEligibilityCache, setJevProviderOverride, type EligibilityBatch, type JudgementSubject } from "../lib/intelligence/capabilities";
+import type { JudgeProvider } from "../lib/intelligence/contracts";
 import type { Company, ResultJudgement } from "../lib/types";
 import { deriveFixture, fixtureManifest } from "./fixtures/market_fixture";
 

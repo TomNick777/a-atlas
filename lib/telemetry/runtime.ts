@@ -4,8 +4,8 @@ import { exec, execSync } from "node:child_process";
 import path from "node:path";
 import { ensureContext, setContext } from "./context";
 import { PRODUCTION_CONTRACT, manifestIsStale, manifestStampOf, verifyJudgeIdentity } from "./contract";
-import { getJevCloudProvider, identityProbe } from "../jev/capabilities";
-import type { ProviderStats, ProviderStatus } from "../jev/capabilities";
+import { getJevCloudProvider, identityProbe, currentJudgeId, jevJudgeRuntime, judgeProviders } from "../intelligence/capabilities";
+import type { ProviderStats, ProviderStatus } from "../intelligence/capabilities";
 import { emit, emitIncident, buildEnvelope, currentRuntime } from "./emit";
 import { newAppRunId } from "./ids";
 import { defaultStore, type TelemetryStore } from "./store";
@@ -182,6 +182,11 @@ export type JudgeProbeOutcome = {
  * a degraded Discover, not a failed boot (§22).
  */
 export async function probeJudgeIdentity(): Promise<JudgeProbeOutcome> {
+  if (currentJudgeId() === "laya") {
+    await judgeProviders();
+    const snapshot = jevJudgeRuntime();
+    return { ...snapshot, verdict: { status: snapshot.status.configured && snapshot.status.lastAnsweredModel ? "verified" : "unavailable", expectedModel: snapshot.status.lastAnsweredModel ?? "registered local artifact", actualModel: snapshot.status.lastAnsweredModel, reason: snapshot.status.configured ? null : "local service unavailable" } };
+  }
   const provider = getJevCloudProvider();
   await identityProbe();
   return {
@@ -313,7 +318,7 @@ export async function initRuntime(store: TelemetryStore = defaultStore): Promise
     void emitIncident("JEV_UNAVAILABLE", { reason: "startup_identity_probe_failed", message: error instanceof Error ? error.message : String(error) }, { severity: "warning" });
   }
   ensureContext().judge = {
-    provider: jev?.status.configured ? "jev" : "none",
+    provider: jev?.status.configured ? currentJudgeId() : "none",
     model: jev?.status.lastAnsweredModel ?? null,
     configured: jev?.status.configured ?? false,
     breaker: jev?.status.breaker.state ?? "closed",
@@ -407,7 +412,8 @@ export async function beat(store: TelemetryStore = defaultStore, idlePauseMs = 3
 
   // Remote + component status. Jev is a remote dependency: its failure is an
   // incident and a DEGRADED Discover, never a reason to call the web unhealthy.
-  const jevStatus = getJevCloudProvider().status();
+  const providers = await judgeProviders();
+  const jevStatus = jevJudgeRuntime().status;
   const data = await probeDataServiceHealth();
   const jevHealthy = jevStatus.configured && jevStatus.breaker.state !== "open";
   if (ctx.jevHealthy && !jevHealthy) {
@@ -420,7 +426,7 @@ export async function beat(store: TelemetryStore = defaultStore, idlePauseMs = 3
   }
   ctx.jevHealthy = jevHealthy;
   ctx.dataHealthy = data.ok;
-  ctx.judge = { provider: jevStatus.configured ? "jev" : "none", model: jevStatus.lastAnsweredModel, configured: jevStatus.configured, breaker: jevStatus.breaker.state, healthy: jevHealthy };
+  ctx.judge = { provider: jevStatus.configured ? currentJudgeId() : "none", model: jevStatus.lastAnsweredModel, configured: jevStatus.configured, breaker: jevStatus.breaker.state, healthy: jevHealthy };
 
   const profileStamp = state.profileFile ? stampOfFile(state.profileFile) : null;
   const vectorsStamp = state.vectorsFile ? stampOfFile(state.vectorsFile) : null;
@@ -431,6 +437,7 @@ export async function beat(store: TelemetryStore = defaultStore, idlePauseMs = 3
     uptimeMs: Date.now() - ctx.startedAt,
     memoryRssMb: Math.round(process.memoryUsage().rss / 1024 / 1024),
     judge: ctx.judge,
+    providers,
     jevInFlight: jevStatus.inFlight,
     dataHealthy: data.ok,
     dataVersion: data.version,

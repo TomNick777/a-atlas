@@ -11,6 +11,7 @@
 - `evaluation/discovery/` 中的JSON：冻结发现查询集和从公司语料抽取的证据审计留在本地。
 - `tests/fixtures/semantic/` 的JSON、judge与retrieval，以及stockdata响应夹具：真实公司资料与响应回放不发布。
 - API key、模型缓存、日志、依赖安装产物、`.local/` 与 `.next/`。
+- 合并新增的 `models/`（权重、registry、best/last/resume、optimizer/RNG）、`.venv-laya/`、dataset manifest、冻结标签及真实 adapter 响应全部私有；权重/恢复二进制后缀由 publication 检查兜底。
 
 以上文件只停止Git跟踪，磁盘内容不移动、不删减、不改写。包含它们的旧提交不能作为公开主线的祖先；完整历史保存在 `D:\workspace\a-atlas-archive-2026-10-05/`，更早迁移的历史在2026-10-04归档。新主线从GitHub仅含README/LICENSE的初始化提交开始，叠加当前代码。不能向公开仓库推送旧refs、bundle或旧LFS对象。
 

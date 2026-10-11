@@ -7,7 +7,7 @@ import { execSync } from "node:child_process";
 import { loadLocalEnv } from "./load-env";
 import { loadDataset } from "../lib/companies";
 import { loadMarketStateManifest, loadMarketStateRows } from "../lib/market/state";
-import { identityProbe, resetMarketEligibilityCache, MARKET_ELIGIBILITY_VERSION } from "../lib/jev/capabilities";
+import { identityProbe, resetMarketEligibilityCache, MARKET_ELIGIBILITY_VERSION } from "../lib/intelligence/capabilities";
 import { runHybridQuery } from "../lib/hybrid/execute";
 import { presentDiscoverResult } from "../lib/atlas/evidence";
 import { MARKET_SELECTION_VERSION } from "../lib/hybrid/contracts";

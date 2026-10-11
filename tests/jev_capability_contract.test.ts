@@ -15,9 +15,9 @@ import {
   subjectsOf,
   type EvidenceItem,
   type JudgementSubject,
-} from "../lib/jev/capabilities";
+} from "../lib/intelligence/capabilities";
 import type { Company } from "../lib/types";
-import type { JevCall, JudgeProvider } from "../lib/jev/provider";
+import type { JevCall, JudgeProvider } from "../lib/intelligence/contracts";
 
 /**
  * Capability contract tests (Phase 3.3 §15 B) — offline, zero network.

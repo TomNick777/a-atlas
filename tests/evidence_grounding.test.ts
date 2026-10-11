@@ -5,8 +5,8 @@ import { runHybridQuery as runCurrentHybridQuery, type HybridExecuteOptions } fr
 const runHybridQuery = (raw: string, options: HybridExecuteOptions = {}) => runCurrentHybridQuery(raw, { ...options, legacyReplay: true });
 import { loadCommittedMarketStateManifest, loadMarketStateRows } from "../lib/market/state";
 import { HYBRID_PRESETS } from "../lib/hybrid/presets";
-import { RecordedJudgeProvider, type RecordedCall } from "../lib/jev/recorded";
-import { setJevProviderOverride } from "../lib/jev/cloud";
+import { RecordedJudgeProvider, type RecordedCall } from "../lib/intelligence/recorded";
+import { setJevProviderOverride } from "../lib/intelligence/runtime";
 import { evidenceViewsFor, presentDiscoverResult } from "../lib/atlas/evidence";
 
 /**

@@ -16,3 +16,7 @@
 公司语料、行情、向量、训练/评测数据、`reports/`、冻结质量结果与真实响应夹具均不随代码发布。未来拟公开数据时需另行核对来源许可，并明确批准变更发布范围。当前没有取得统一数据开源许可证，不能宣称所有数据可按 Apache-2.0 复用。本地数据准备与公开验收范围见 `docs/PUBLIC_CODE_RELEASE.md`。
 
 数据契约、provenance 和重建方法分别见 `docs/COMPANY_KNOWLEDGE_CORPUS.md`、`docs/EVIDENCE_COVERAGE_EXPANSION.md`、`docs/EVIDENCE_SURFACE_EXPANSION.md`；第三方代码见 `THIRD_PARTY_NOTICES.md`。
+
+## Atlas / Trawler 集成分支
+
+模型权重、历史 ontology/profile 快照、教师/规则/审核标签、续训 dataset manifest、恢复状态和真实评测响应均留在本机，保留各自来源与许可资料。训练产物不赋予事实数据新的再分发许可，Laya 软件的许可不替代其底座模型、输入数据与权重的许可。迁移只复制并核对哈希，不公开旧 trawler refs、历史数据或模型文件。

@@ -3,7 +3,7 @@
 Start the production sidecar first (`.venv/Scripts/python.exe -u
 scripts/laya_server.py --checkpoint models/a-share-laya/checkpoint_best`, i.e.
 `npm run laya:ft`), then run this script. It rebuilds the exact production wire
-calls of lib/jev/judge.ts — same state, same noul instructions, chunks of 100
+calls of lib/intelligence/judge.ts — same state, same noul instructions, chunks of 100
 questions — but sends every one of the 5,567 companies in data/companies.json
 per query instead of the retrieval finalists, so the ranking measured is the
 fine-tuned model's own. No filtering, no rerank, no threshold: Top 20 is a pure
@@ -37,7 +37,7 @@ SIDECAR = os.environ.get("LAYA_ACCEPT_URL", "http://127.0.0.1:8787")
 TIMEOUT_S = 120
 CHUNK = 100  # judge.ts CHUNK
 
-# Verbatim from lib/jev/judge.ts.
+# Verbatim from lib/intelligence/judge.ts.
 HOW = (
     "looking_for 是一个人用自己的话说想找的公司。"
     "每一题是一家候选公司，profile 是它的公开业务资料。"
@@ -99,7 +99,7 @@ def collect_meta(companies_path: Path) -> dict:
         "git_worktree_dirty": bool(dirty),
         "git_dirty_paths": sorted({line[3:] for line in dirty}),
         "laya_server_script_blob": git("hash-object", "scripts/laya_server.py"),
-        "judge_ts_blob": git("hash-object", "lib/jev/judge.ts"),
+        "judge_ts_blob": git("hash-object", "lib/intelligence/judge.ts"),
         "checkpoint": CHECKPOINT,
         "checkpoint_npm_command": "npm run laya:ft",
         "model_safetensors_sha256": sha256_file(ROOT / CHECKPOINT / "model.safetensors"),

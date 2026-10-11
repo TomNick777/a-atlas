@@ -1,11 +1,4 @@
-/**
- * Jev Cloud is A-Atlas' only judgement provider (Phase 4 §0/§1).
- *
- * There is deliberately no Laya configuration here. A-Atlas does not read a
- * local sidecar URL, does not health-check one, and does not fall back to one:
- * Laya is a-share-trawler's runtime. If Jev cannot answer, Discover degrades to
- * deterministic retrieval and says so (§10).
- */
+/** Explicit selected-judge runtime: cloud settings here, local transport behind capabilities. */
 
 /** The cloud key. Server-side only — it must never reach a client bundle. */
 export function typesafeKey(): string | null {

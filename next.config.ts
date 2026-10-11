@@ -9,6 +9,10 @@ const nextConfig: NextConfig = {
   // 本机 Harbor 探活都从 127.0.0.1 进来，缺省 Host 判定会拦掉 dev chunk，
   // 症状是 SSR HTML 正常但 hydration 永不完成（Phase 2 §24 走查实锤）。
   allowedDevOrigins: ["127.0.0.1", "localhost"],
+  // Private runtime artifacts are installed locally, never bundled into Web output.
+  outputFileTracingExcludes: {
+    "/*": ["./models/**/*", "./data/**/*", "./reports/**/*", "./.local/**/*", "./.venv/**/*", "./.venv-laya/**/*", "./.env*", "./quality/discovery/snapshots/**/*", "./quality/discovery/reviews/**/*"],
+  },
 };
 
 export default nextConfig;

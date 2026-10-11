@@ -8,7 +8,7 @@
  */
 
 import { loadDataset } from "../lib/companies";
-import { judgeGraded } from "../lib/jev/judge";
+import { judgeGraded } from "../lib/intelligence/judge";
 import { requireLayaLane } from "./require-laya-lane";
 
 requireLayaLane("smoke_v41_promotion.ts");

@@ -95,6 +95,7 @@ async function main() {
           reformulationGroupId: event.payload.reformulationGroupId,
           previousSearchId: event.payload.previousSearchId,
           marketIdentity: event.payload.marketIdentity,
+          judge: event.payload.judge ?? null,
           outcome: ready
             ? {
                 serverMs: ready.payload.serverMs,
@@ -111,6 +112,9 @@ async function main() {
         };
       });
     })(),
+    judgeCalls: events
+      .filter(event => event.eventType === "JUDGE_CALL" || event.eventType === "JEV_CALL" && !events.some(other => other.eventType === "JUDGE_CALL" && other.payload.callId === event.payload.callId))
+      .map(event => ({ timestamp: event.timestamp, searchId: event.searchId, payload: event.payload })),
     jevCalls: events
       .filter((event) => event.eventType === "JEV_CALL")
       .map((event) => ({ timestamp: event.timestamp, searchId: event.searchId, payload: event.payload })),

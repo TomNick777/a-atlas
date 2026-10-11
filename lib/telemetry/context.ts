@@ -24,7 +24,7 @@ export type TelemetryContext = {
   lastActivityAt: number;
   lastHeartbeatAt: number;
   /** Judge as last seen (§23: a remote dependency, reported but never a boot gate). */
-  judge: { provider: "jev" | "none"; model: string | null; configured: boolean; breaker: string; healthy: boolean };
+  judge: { provider: "jev" | "laya" | "none"; model: string | null; configured: boolean; breaker: string; healthy: boolean };
   /** Last observed health of each runtime element (refocus 后 = Jev + 数据服务）。 */
   jevHealthy: boolean;
   dataHealthy: boolean;

@@ -14,6 +14,9 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // Python venv ships third-party .js bundles.
     ".venv/**",
+    ".venv-laya/**",
+    ".local/**",
+    "models/**",
     // Vendored Vibe backend (Phase 2): independent Python service + its own TS
     // spikes; governed by upstream license, not by the A-Atlas lint ruleset.
     "services/vibe-research/**",

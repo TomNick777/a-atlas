@@ -154,7 +154,7 @@ export type HybridExecution = {
   /** Judge unavailable → deterministic blend, honestly labelled (never a second judge). */
   degraded: boolean;
   degradedReason: string | null;
-  decidedBy: "jev" | "retrieval" | "market" | null;
+  decidedBy: "jev" | "laya" | "retrieval" | "market" | null;
   counts: {
     /** semantic-only/semantic-first: hits the discovery path returned. */
     semanticCandidates?: number;

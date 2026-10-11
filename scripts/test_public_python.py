@@ -8,6 +8,9 @@ for filename in (
     "test_stockdata_extraction.py",
     "test_stockdata_market_fetch.py",
     "test_stockdata_service.py",
+    "test_stockdata_daily.py",
+    "test_laya_groups.py",
+    "test_laya_lifecycle.py",
 ):
     suite.addTests(unittest.defaultTestLoader.discover("tests", pattern=filename))
 

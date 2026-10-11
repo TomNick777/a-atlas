@@ -1,5 +1,6 @@
 import { probeDataServiceHealth } from "@/lib/telemetry/runtime";
 import { healthOf } from "@/lib/atlas/runtime";
+import { judgeProviders, parseProvider, withJudgeProvider } from "@/lib/intelligence/capabilities";
 
 export const dynamic = "force-dynamic";
 
@@ -10,7 +11,12 @@ export const dynamic = "force-dynamic";
 // 把 503 用作「data 挂了」会让 Harbor 误判 web 失能并重启一个没坏的进程。
 // Phase 4 §23/§24：Jev 是外部依赖，它故障只会让 Discover DEGRADED，永远不让产品 UNHEALTHY。
 // Refocus：Vibe Research 已退役，核心运行时的另一个组件是 a-atlas-data（:8920）。
-export async function GET() {
+export async function GET(request: Request) {
+  let selected;
+  try { selected = parseProvider(new URL(request.url).searchParams.get("provider") ?? undefined); }
+  catch { return Response.json({ error: "provider must be jev or laya" }, { status: 400 }); }
+  const providers = await judgeProviders();
+  return withJudgeProvider(selected, async () => {
   const data = await probeDataServiceHealth();
   const health = healthOf({ dataReachable: data.ok, dataVersion: data.version, dataError: data.error });
   return Response.json(
@@ -20,8 +26,10 @@ export async function GET() {
       status: health.status,
       components: health.components,
       judge: health.judge,
-      remote: { jev: health.remote.jev, sources: { failing: health.remote.sources.failing } },
+      providers,
+      remote: { selectedJudge: health.remote.jev, ...(selected === "jev" ? { jev: health.remote.jev } : {}), sources: { failing: health.remote.sources.failing } },
     },
     { headers: { "Cache-Control": "no-store" } },
   );
+  });
 }

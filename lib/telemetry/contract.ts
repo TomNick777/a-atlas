@@ -11,7 +11,7 @@
  */
 
 import { jevModel } from "../env";
-import { JEV_PRODUCTION_MODEL } from "../jev/capabilities";
+import { JEV_PRODUCTION_MODEL } from "../intelligence/capabilities";
 import { CORPUS_SCHEMA_VERSION } from "../corpus/contracts";
 
 export const PRODUCTION_CONTRACT = {

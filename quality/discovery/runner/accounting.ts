@@ -5,6 +5,7 @@
  * must never contain unaccounted judge calls.
  */
 const JEV_URL = /systemone|typesafe\.ai/i;
+export function isAccountedCloudUrl(url: string): boolean { return JEV_URL.test(url); }
 
 export type WireAccounting = {
   wrap(): void;

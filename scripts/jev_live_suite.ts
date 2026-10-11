@@ -22,9 +22,9 @@
 
 import { mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { identityProbe } from "../lib/jev/judge";
+import { identityProbe } from "../lib/intelligence/judge";
 import { runHybridQuery } from "../lib/hybrid/execute";
-import { getJevCloudProvider } from "../lib/jev/cloud";
+import { getJevCloudProvider } from "../lib/intelligence/runtime";
 import {
   runEvidenceExplanation,
   runSemanticComparison,
@@ -32,8 +32,8 @@ import {
   subjectsOf,
   type EvidenceItem,
   type JudgementSubject,
-} from "../lib/jev/capabilities";
-import { JEV_PRODUCTION_MODEL } from "../lib/jev/provider";
+} from "../lib/intelligence/capabilities";
+import { JEV_PRODUCTION_MODEL } from "../lib/intelligence/contracts";
 import { SHOWN } from "../lib/search/score";
 import { typesafeKey, jevBaseUrl } from "../lib/env";
 import { loadDataset } from "../lib/companies";

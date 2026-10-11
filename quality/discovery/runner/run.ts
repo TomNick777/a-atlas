@@ -15,14 +15,16 @@
  * Artifacts per run land in quality/discovery/snapshots/<label>/:
  *   environment.json · run.json · results.jsonl · metrics.json · report.md
  */
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync, existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { installCloudBudget } from "./cloud-budget";
+import { withJudgeProvider, parseProvider, jevJudgeRuntime } from "../../../lib/intelligence/capabilities";
 import { loadLocalEnv } from "../../../scripts/load-env";
 import { typesafeKey, jevBaseUrl } from "../../../lib/env";
 import { loadDataset } from "../../../lib/companies";
 import { loadCommittedMarketStateManifest, loadMarketStateRows } from "../../../lib/market/state";
-import { identityProbe, runSemanticComparison, subjectsOf, JEV_CAPABILITY_CONTRACT_VERSIONS, JEV_PRODUCTION_MODEL, runEvidenceExplanation } from "../../../lib/jev/capabilities";
-import type { EvidenceItem, JudgementSubject } from "../../../lib/jev/capabilities";
+import { identityProbe, runSemanticComparison, subjectsOf, JEV_CAPABILITY_CONTRACT_VERSIONS, JEV_PRODUCTION_MODEL, runEvidenceExplanation } from "../../../lib/intelligence/capabilities";
+import type { EvidenceItem, JudgementSubject } from "../../../lib/intelligence/capabilities";
 import { runHybridQuery } from "../../../lib/hybrid/execute";
 import { resolveEvidenceRef } from "../../../lib/atlas/evidence";
 import type { Company } from "../../../lib/types";
@@ -55,13 +57,15 @@ const EXPLAIN_PLAN: Record<string, string[]> = {
   H01: ["600519", "000858"],
 };
 
-type Args = { label: string | null; offline: boolean; families: string[] | null; ids: string[] | null };
+type Args = { provider: "jev" | "laya"; budget: string | null; label: string | null; offline: boolean; families: string[] | null; ids: string[] | null };
 
 function parseArgs(): Args {
   const argv = process.argv.slice(2);
-  const args: Args = { label: null, offline: false, families: null, ids: null };
+  const args: Args = { provider: "jev", budget: null, label: null, offline: false, families: null, ids: null };
   for (let i = 0; i < argv.length; i += 1) {
     if (argv[i] === "--label") args.label = argv[i + 1] ?? null;
+    else if (argv[i] === "--provider") args.provider = parseProvider(argv[i + 1]);
+    else if (argv[i] === "--acceptance-budget") args.budget = argv[i + 1];
     else if (argv[i] === "--offline") args.offline = true;
     else if (argv[i] === "--family") args.families = (argv[i + 1] ?? "").split(",").map((value) => value.trim()).filter(Boolean);
     else if (argv[i] === "--query") args.ids = (argv[i + 1] ?? "").split(",").map((value) => value.trim()).filter(Boolean);
@@ -373,19 +377,20 @@ async function main(): Promise<void> {
   const label = args.label ?? (args.offline ? "debug" : null);
   if (!label) die("--label <name> is required for a run (snapshots/<label>)");
 
+  if (!/^[A-Za-z0-9_-]{1,80}$/.test(label) || existsSync(resolve(SNAPSHOTS_DIR, label))) die("Run label is invalid or already exists; observations cannot be overwritten");
   const offline = args.offline;
   const dataset = loadDataset();
   const preflight: Record<string, unknown> = { mode: offline ? "offline-debug" : "live" };
 
   if (!offline) {
     loadLocalEnv();
-    if (!typesafeKey()) die("TYPESAFE_API_KEY is empty — an official baseline is LIVE only (§30). For plumbing debugging use --offline.");
-    if (jevBaseUrl() !== "https://api.typesafe.ai/v1/systemone") {
+    if (args.provider === "jev" && !typesafeKey()) die("TYPESAFE_API_KEY is empty — an official baseline is LIVE only (§30). For plumbing debugging use --offline.");
+    if (args.provider === "jev" && jevBaseUrl() !== "https://api.typesafe.ai/v1/systemone") {
       die(`refusing to run a baseline against a non-production surface (${jevBaseUrl()})`);
     }
     const probe = await identityProbe();
     preflight.identityProbe = probe;
-    if (!probe.ok || probe.model !== JEV_PRODUCTION_MODEL) {
+    if (!probe.ok || probe.model !== (args.provider === "jev" ? JEV_PRODUCTION_MODEL : jevJudgeRuntime().status.lastAnsweredModel)) {
       die(`identity probe failed: ok=${probe.ok} model=${probe.model} (contract ${JEV_PRODUCTION_MODEL}) — fix the judge before measuring it`);
     }
   }
@@ -427,6 +432,13 @@ async function main(): Promise<void> {
   console.log(`mode: ${offline ? "offline-debug" : "live"} · cases: ${cases.length} · corpus ${corpusDigest} · market ${doc.marketDate}`);
 
   for (const benchCase of cases) {
+    if (args.budget && args.provider === "jev" && JSON.parse(readFileSync(resolve(dirnameOfBudget(args.budget), "cloud-budget.json"), "utf8")).exhausted) {
+      const partial = resolve(SNAPSHOTS_DIR, label);
+      mkdirSync(partial, { recursive: true });
+      writeFileSync(resolve(partial, "partial-results.jsonl"), records.map(record => JSON.stringify(record)).join("\n"));
+      accounting.restore();
+      throw new Error("Preregistered cloud budget exhausted; partial observations retained");
+    }
     const record = benchCase.family === "comparison" ? await runComparisonCase(benchCase, offline, accounting) : await runDiscoverCase(benchCase, offline, accounting);
     records.push(record);
     const tail = record.comparison
@@ -447,7 +459,12 @@ async function main(): Promise<void> {
 
   const runJson = {
     run: label,
-    suite: "atlas-jev-discovery-quality/1",
+    suite: "atlas-selected-judge-discovery-quality/1",
+    provider: args.provider,
+    actualModel: jevJudgeRuntime().status.lastAnsweredModel,
+    marketDate: doc.marketDate,
+    corpusDigest,
+    gitHead: environment.gitHead,
     benchmarkVersion: BENCHMARK_VERSION,
     benchmarkSha16: benchmarkSha256(doc),
     capabilityContracts: JEV_CAPABILITY_CONTRACT_VERSIONS,
@@ -486,7 +503,15 @@ async function main(): Promise<void> {
   }
 }
 
-main().catch((error) => {
+loadLocalEnv();
+const entryArgs = parseArgs();
+let restoreBudget: (() => void) | null = null;
+if (entryArgs.budget && !entryArgs.offline && entryArgs.provider === "jev") {
+  const prereg = JSON.parse(readFileSync(entryArgs.budget, "utf8"));
+  restoreBudget = installCloudBudget(resolve(dirnameOfBudget(entryArgs.budget), "cloud-budget.json"), prereg.quality.cloudMaxCalls, prereg.quality.cloudMaxCostUsd);
+}
+function dirnameOfBudget(file: string) { return resolve(file, ".."); }
+withJudgeProvider(entryArgs.provider, main).finally(() => restoreBudget?.()).catch((error) => {
   console.error(error instanceof Error ? error.stack ?? error.message : error);
   process.exit(1);
 });

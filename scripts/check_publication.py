@@ -7,13 +7,13 @@ from pathlib import PurePosixPath
 
 def private_path(name: str) -> bool:
     path = PurePosixPath(name)
-    if name.startswith(("data/", "reports/", "quality/discovery/snapshots/",
+    if name.startswith(("data/", "reports/", "models/", ".local/", ".venv-laya/", "quality/discovery/snapshots/",
                         "quality/discovery/reviews/", "tests/fixtures/stockdata/",
                         "tests/fixtures/semantic/judge/", "tests/fixtures/semantic/retrieval/")):
         return True
     if path.parent.as_posix() in ("quality/discovery", "evaluation/discovery", "tests/fixtures/semantic") and path.suffix == ".json":
         return True
-    if path.suffix.lower() in (".pt", ".f32", ".exe", ".pdf", ".xlsx"):
+    if path.suffix.lower() in (".pt", ".pth", ".safetensors", ".ckpt", ".bin", ".f32", ".exe", ".pdf", ".xlsx"):
         return True
     return path.name.startswith(".env") and path.name != ".env.example"
 

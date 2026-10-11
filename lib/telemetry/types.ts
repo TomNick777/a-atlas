@@ -123,6 +123,7 @@ export const SEARCH_EVENT_TYPES = [
   "DISCOVER_RECEIVED",
   "DISCOVER_RESPONSE_READY",
   "JEV_CALL",
+  "JUDGE_CALL",
 ] as const;
 
 export const INTERACTION_EVENT_TYPES = [

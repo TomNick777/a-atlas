@@ -1,3 +1,4 @@
+import { currentJudgeId } from "../intelligence/capabilities";
 import { loadDataset } from "../companies";
 import {
   classify,
@@ -9,7 +10,7 @@ import {
   MATCH_CHUNK as JUDGE_CHUNK,
   runJevJudgement,
   subjectsOf,
-} from "../jev/capabilities";
+} from "../intelligence/capabilities";
 import { jevModel } from "../env";
 import type { JudgeReport, ResultJudgement, SearchResult, SearchTrace } from "../types";
 import { buildLexicalIndex, type LexicalIndex } from "../text/tokenize";
@@ -276,7 +277,7 @@ export async function runSearch(raw: string, options: SearchOptions = {}): Promi
     const rerankStartedAt = performance.now();
     const rerankWindowStart = Date.now();
     chunkCount = Math.ceil(finalists.length / JUDGE_CHUNK);
-    if (telemetryOn) rerankEvent({ searchId, sessionId, phase: "started", provider: "jev", candidateCount: finalists.length, batchCount: chunkCount });
+    if (telemetryOn) rerankEvent({ searchId, sessionId, phase: "started", provider: currentJudgeId(), candidateCount: finalists.length, batchCount: chunkCount });
     const match = await runJevJudgement(query, subjectsOf(finalists, options.judgeLanguage ?? "zh"), { signal: options.signal });
     rerankMs = performance.now() - rerankStartedAt;
     answeredChunks = match.answeredChunks;
@@ -292,7 +293,7 @@ export async function runSearch(raw: string, options: SearchOptions = {}): Promi
         searchId,
         sessionId,
         phase: "completed",
-        provider: "jev",
+        provider: currentJudgeId(),
         candidateCount: finalists.length,
         batchCount: chunkCount,
         rerankMs,
@@ -336,9 +337,9 @@ export async function runSearch(raw: string, options: SearchOptions = {}): Promi
       decisions: match.decisions.length,
     };
     if (match.live) {
-      judgeReport = { provider: "jev", model: match.runtimeModel, outcome: "ok" };
+      judgeReport = { provider: currentJudgeId(), model: match.runtimeModel, outcome: "ok" };
       judgeCostUsd = match.costUsd;
-      decidedBy = "jev";
+      decidedBy = currentJudgeId();
       degraded = false;
       jevRemovedCount = match.decisions.filter((decision) => !decision.matched).length;
       const decided: Record<string, ResultJudgement> = {};
@@ -361,7 +362,7 @@ export async function runSearch(raw: string, options: SearchOptions = {}): Promi
       degraded = true;
     }
     intelligence = {
-      provider: match.live ? "jev" : "none",
+      provider: match.live ? currentJudgeId() : "none",
       capability: match.capability,
       contractVersion: match.contractVersion,
       runtimeModel: match.runtimeModel,
@@ -378,7 +379,7 @@ export async function runSearch(raw: string, options: SearchOptions = {}): Promi
   // from arrays this function already computed — when Jev did not answer, the
   // value stays null (no before/after exists to compare), never faked.
   const jevValue: JevValue | null =
-    jevMeta && decidedBy === "jev"
+    jevMeta && decidedBy !== "retrieval"
       ? computeJevValue(
           indexes.map((index) => companies[index].code),
           ranked.map((row) => companies[row.index].code),
@@ -404,7 +405,7 @@ export async function runSearch(raw: string, options: SearchOptions = {}): Promi
   );
   // The reason is the provider's own outcome, not a guess derived from counters:
   // "why is this search degraded" must be answerable from the event alone (§34).
-  const degradedReason: string | null = !degraded ? null : decidedBy === "jev" ? "fusion_dropped_all" : judgeReport.outcome;
+  const degradedReason: string | null = !degraded ? null : decidedBy !== "retrieval" ? "fusion_dropped_all" : judgeReport.outcome;
   if (telemetryOn) {
     // §6: the top rows' judgement record — refs only (never corpus text) — plus
     // the query-level Jev rollup, so one event answers "what did this search
@@ -433,7 +434,7 @@ export async function runSearch(raw: string, options: SearchOptions = {}): Promi
       fusionMs,
       degraded,
       degradedReason,
-      fallbackUsed: decidedBy === "jev" ? null : "retrieval_blend",
+      fallbackUsed: decidedBy !== "retrieval" ? null : "retrieval_blend",
       decidedBy,
       judge: judgeReport,
       matches,

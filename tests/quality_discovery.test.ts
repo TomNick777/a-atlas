@@ -254,7 +254,7 @@ describe("benchmark digest pinning", () => {
 });
 
 describe("runner seam discipline", () => {
-  it("touches lib/jev only through the capabilities seam", () => {
+  it("touches lib/intelligence only through the capabilities seam", () => {
     const files: string[] = [];
     const walk = (dir: string) => {
       for (const entry of readdirSync(dir)) {
@@ -271,9 +271,9 @@ describe("runner seam discipline", () => {
     const endpointAware = /[/\\](accounting|run)\.ts$/;
     for (const file of files) {
       const text = readFileSync(file, "utf-8");
-      const jevImports = text.match(/from "[^"]*lib\/jev\/[^"]*"/g) ?? [];
+      const jevImports = text.match(/from "[^"]*lib\/intelligence\/[^"]*"/g) ?? [];
       for (const statement of jevImports) {
-        expect(statement.includes("lib/jev/capabilities"), `${file}: ${statement} bypasses the capabilities seam`).toBe(true);
+        expect(statement.includes("lib/intelligence/capabilities"), `${file}: ${statement} bypasses the capabilities seam`).toBe(true);
       }
       expect(text).not.toMatch(/askNoul|askGraded|how_to_judge|looking_for|JEV_TIMING|JEV_PRICE_PER_TOKEN/);
       if (!endpointAware.test(file)) {

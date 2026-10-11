@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { judge } from "../lib/jev/judge";
-import { RecordedJudgeProvider, type RecordedCall } from "../lib/jev/recorded";
-import { setJevProviderOverride } from "../lib/jev/cloud";
+import { judge } from "../lib/intelligence/judge";
+import { RecordedJudgeProvider, type RecordedCall } from "../lib/intelligence/recorded";
+import { setJevProviderOverride } from "../lib/intelligence/runtime";
 import { loadDataset } from "../lib/companies";
 import type { Company } from "../lib/types";
 

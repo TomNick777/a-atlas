@@ -225,7 +225,10 @@ def reports_block(symbol: str) -> dict:
     return cached("reports", symbol, produce)
 
 
+from daily_bars import daily_bars
+
 BLOCKS = {
+    "bars": daily_bars,
     "quote": quote_block,
     "fundamentals": fundamentals_block,
     "announcements": announcements_block,

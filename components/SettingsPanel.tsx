@@ -1,4 +1,6 @@
 "use client";
+import { JudgeSelector } from "./JudgeSelector";
+import type { JudgeChoice } from "./judgePreference";
 
 import { useEffect, useRef, useState } from "react";
 import { CARD_FACES, CARD_THEMES, plateTint, type CardFace, type CardTheme } from "./floor/theme";
@@ -36,7 +38,11 @@ export function SettingsPanel({
   onSelectTheme,
   face,
   onSelectFace,
+  judge = "jev",
+  onSelectJudge = () => {},
 }: {
+  judge?: JudgeChoice;
+  onSelectJudge?: (id: JudgeChoice) => void;
   theme: CardTheme;
   onSelectTheme: (theme: CardTheme) => void;
   face: CardFace;
@@ -72,6 +78,7 @@ export function SettingsPanel({
           aria-label="设置"
           className="absolute bottom-full mb-2 max-h-[calc(100dvh-72px)] w-[min(300px,calc(100vw-24px))] overflow-y-auto rounded-[10px] border border-black/10 bg-[#fbfaf7] shadow-[0_18px_50px_rgba(0,0,0,0.45)]"
         >
+          <JudgeSelector value={judge} onChange={onSelectJudge} />
           <button
             type="button"
             onClick={() => setFaceExpanded((value) => !value)}

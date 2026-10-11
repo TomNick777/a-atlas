@@ -14,7 +14,7 @@
  * judgement on one page.
  */
 
-import { jevJudgeRuntime } from "../jev/capabilities";
+import { jevJudgeRuntime } from "../intelligence/capabilities";
 import { verifyJudgeIdentity } from "../telemetry/contract";
 
 export type HealthLevel = "healthy" | "degraded" | "unhealthy";
@@ -128,7 +128,7 @@ export function sourceHealth(windowMs = 60_000) {
  */
 export function healthOf(input: { dataReachable: boolean; dataVersion?: string | null; dataError?: string | null }) {
   const { status } = jevJudgeRuntime();
-  const identity = verifyJudgeIdentity(status.lastAnsweredModel, status.configured);
+  const identity = status.provider === "laya" ? { status: status.configured && status.artifactSha ? "verified" : "unconfigured" } : verifyJudgeIdentity(status.lastAnsweredModel, status.configured);
   const upstream = upstreamStats();
   const sources = sourceHealth();
 
@@ -146,7 +146,7 @@ export function healthOf(input: { dataReachable: boolean; dataVersion?: string |
     },
     remote: {
       jev: {
-        provider: "jev",
+        provider: status.provider,
         configured: status.configured,
         model: status.model,
         answeredModel: status.lastAnsweredModel,
@@ -158,7 +158,7 @@ export function healthOf(input: { dataReachable: boolean; dataVersion?: string |
       sources: { failing: sources.failing, failingPaths: sources.paths, windowCalls: sources.recentCalls, windowFailures: sources.recentFailures, ...upstream },
     },
     judge: {
-      provider: status.configured ? "jev" : "none",
+      provider: status.configured ? status.provider : "none",
       model: status.lastAnsweredModel,
       configured: status.configured,
       breaker: status.breaker.state,

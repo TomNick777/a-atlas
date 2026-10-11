@@ -1,3 +1,4 @@
+import { currentJudgeId, jevJudgeRuntime } from "../intelligence/capabilities";
 import { queryHash16, organicEligibilityFor, reformulationLink, type ReformulationState, type RequestOrigin, type OrganicEligibility } from "./organic";
 import { emit, emitIncident } from "./emit";
 import type { TelemetryStore } from "./store";
@@ -86,6 +87,7 @@ export async function discoverReceived(input: DiscoverReceivedInput): Promise<Di
       reformulationEditDistance: link.editDistance,
       reformulationTimeDeltaMs: link.timeDeltaMs,
       marketIdentity: marketIdentity(),
+      judge: { selectedProvider: currentJudgeId(), requestedModel: jevJudgeRuntime().status.model, actualModel: jevJudgeRuntime().status.lastAnsweredModel, artifactSha: jevJudgeRuntime().status.artifactSha ?? null },
     },
     { searchId: input.searchId, sessionId: input.sessionId, store: input.store },
   );

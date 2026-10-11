@@ -63,3 +63,6 @@ export function fetchStockAnnouncements(symbol: string): Promise<StockAnnounceme
 export function fetchStockResearchReports(symbol: string): Promise<StockResearchReports> {
   return fetchBlock<StockResearchReports>("reports", symbol, "数据服务");
 }
+
+export type StockBars = { symbol: string; available: "ok" | "empty" | "unavailable" | "error"; source: string; asOf: string | null; fetchedAt: string | null; currency: string; volumeUnit: string | null; adjust: string; timeframe: string; error?: string; bars: { t: number; o: number; h: number; l: number; c: number; v: number }[] };
+export function fetchStockBars(symbol: string): Promise<StockBars> { return fetchBlock<StockBars>("bars", symbol, "日线数据服务"); }

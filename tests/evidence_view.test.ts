@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { loadDataset } from "@/lib/companies";
-import { judgeProfileRef } from "@/lib/jev/capabilities";
+import { judgeProfileRef } from "@/lib/intelligence/capabilities";
 import {
   evidenceViewsFor,
   presentDiscoverResult,

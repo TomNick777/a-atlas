@@ -1,13 +1,15 @@
 import { LruCache } from "@/lib/cache";
 import { findCompany } from "@/lib/atlas/company";
-import { discoverCacheKey, lookupDiscover } from "@/lib/atlas/discoverCache";
+import { lookupAnswerRecord } from "@/lib/atlas/discoverCache";
 import { evidenceViewsFor, judgeEvidenceFor } from "@/lib/atlas/evidence";
 import {
   judgeCacheIdentity,
+  parseProvider,
+  withJudgeProvider,
   runEvidenceExplanation,
   runSemanticComparison,
   subjectsOf,
-} from "@/lib/jev/capabilities";
+} from "@/lib/intelligence/capabilities";
 import { recordJevCall } from "@/lib/telemetry/jev";
 
 /**
@@ -44,10 +46,10 @@ const explanationCache = new LruCache<ExplanationPayload>(64);
 
 const SIX_DIGITS = /^\d{6}$/;
 
-export async function POST(request: Request) {
+async function explain(request: Request) {
   const started = performance.now();
   const body = (await request.json().catch(() => null)) as
-    | { mode?: string; q?: unknown; code?: unknown; codes?: unknown }
+    | { mode?: string; q?: unknown; code?: unknown; codes?: unknown; searchId?: unknown; provider?: unknown }
     | null;
   const q = typeof body?.q === "string" ? body.q.trim().slice(0, 120) : "";
   if (q.length < 2) return Response.json({ error: "至少输入 2 个字。" }, { status: 400 });
@@ -62,10 +64,11 @@ export async function POST(request: Request) {
   const ms = () => Math.round(performance.now() - started);
 
   // The judgement on record: the row of the answer the user saw.
-  const answer = lookupDiscover(discoverCacheKey(q));
+  const record = lookupAnswerRecord(typeof body?.searchId === "string" ? body.searchId : undefined, q);
+  const answer = record?.answer;
   const row = answer?.results.find((entry) => entry.code === code) ?? null;
   const judgement = row?.judgement ?? null;
-  const evidenceViews = evidenceViewsFor([{ companyId: code, ref: `judge-profile:${code}` }]);
+  const evidenceViews = record?.evidence[code] ?? evidenceViewsFor([{ companyId: code, ref: `judge-profile:${code}` }]);
   const unavailableReason = answer ? (row ? "not_judged" : "not_in_answer") : "search_expired";
 
   const base = {
@@ -89,7 +92,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const key = `${judgeCacheIdentity()}:${q.toLowerCase()}:${code}`;
+  const key = `${record?.identity ?? judgeCacheIdentity()}:${record?.answer.searchId ?? "legacy"}:${q.toLowerCase()}:${code}`;
   const cachedExplanation = explanationCache.get(key);
   if (cachedExplanation) {
     return Response.json({ ...base, explanation: cachedExplanation, cached: true, ms: ms() });
@@ -106,7 +109,7 @@ export async function POST(request: Request) {
         score: judgement.score,
         matched: judgement.matched,
       },
-      evidence: judgeEvidenceFor(code),
+      evidence: record?.evidence[code]?.map(view => ({ ref: view.ref, text: view.text })) ?? judgeEvidenceFor(code),
     },
     { signal: request.signal },
   );
@@ -213,4 +216,15 @@ async function explainComparison(q: string, codes: unknown, started: number): Pr
     subjects,
     ms: ms(),
   });
+}
+
+export async function POST(request: Request) {
+  const body = await request.clone().json().catch(() => null);
+  const q = typeof body?.q === "string" ? body.q.trim().slice(0, 120) : "";
+  const record = lookupAnswerRecord(typeof body?.searchId === "string" ? body.searchId : undefined, q);
+  let provider;
+  try { provider = parseProvider(body?.mode === "comparison" ? body.provider : record?.provider ?? "jev"); }
+  catch { return Response.json({ error: "请选择 Jev 或 Laya。" }, { status: 400 }); }
+  try { return await withJudgeProvider(provider, () => explain(request), body?.mode === "comparison" ? undefined : record?.runtimeModel ?? undefined); }
+  catch { return Response.json({ code: body?.code, evidence: record?.evidence[body?.code] ?? [], explanation: { status: "unavailable", reason: "original_model_unavailable", lines: [], runtimeModel: record?.runtimeModel ?? null, contractVersion: null }, cached: false }); }
 }

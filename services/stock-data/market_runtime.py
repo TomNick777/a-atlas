@@ -9,7 +9,8 @@ import threading
 import time
 import uuid
 from pathlib import Path
-from market_snapshot import REPO, POLICY, capture, session
+from datetime import datetime
+from market_snapshot import REPO, POLICY, CN, capture, session, source_anchor
 
 RUNTIME = REPO / "data" / "market-runtime"
 _lock = threading.Lock()
@@ -109,9 +110,19 @@ def market_snapshot(wait=True):
     final = context["phase"] in ("closed", "preopen", "afterclose")
     due = not runtime or runtime["tradeDate"] != context["tradeDate"] or manifest["inputs"]["universeSha16"] != universe_sha
     if runtime and not due:
-        from datetime import datetime
-        age = time.time() - datetime.fromisoformat(runtime["endedAt"]).timestamp()
+        now = datetime.fromtimestamp(time.time(), CN)
+        age = now.timestamp() - datetime.fromisoformat(runtime["endedAt"]).timestamp()
         due = (not final and age >= POLICY["refreshSeconds"]) or (final and runtime["phase"] not in ("closed", "preopen", "afterclose"))
+        if not final and not due:
+            # A newly collected response can already contain delayed quotes.
+            # Leave the existing collection budget before the Web expiry gate;
+            # fetchedAt alone cannot establish freshness. Keep single-flight.
+            try:
+                source = datetime.strptime(runtime["sourceTimeMin"], "%Y%m%d%H%M%S").replace(tzinfo=CN)
+                source_age = (source_anchor(context, now) - source).total_seconds()
+                due = source.date().isoformat() != context["tradeDate"] or source_age >= max(0, POLICY["maxSourceAgeSeconds"] - POLICY["maxCollectionSeconds"])
+            except (KeyError, ValueError, TypeError):
+                due = True
     with _lock:
         if due and (_job is None or not _job.is_alive()) and time.monotonic() >= _retry_after:
             _job = threading.Thread(target=_refresh, args=(context,), daemon=True)

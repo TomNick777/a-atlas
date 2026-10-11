@@ -1,5 +1,5 @@
-import { jevProvider } from "../lib/jev/cloud";
-import { getJevCloudProvider } from "../lib/jev/cloud";
+import { jevProvider } from "../lib/intelligence/runtime";
+import { getJevCloudProvider } from "../lib/intelligence/runtime";
 import { jevBaseUrl, typesafeKey } from "../lib/env";
 import { PRODUCTION_CONTRACT, manifestStampOf, verifyJudgeIdentity } from "../lib/telemetry/contract";
 import { defaultStore } from "../lib/telemetry/store";

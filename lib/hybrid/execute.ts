@@ -1,3 +1,4 @@
+import { currentJudgeId } from "../intelligence/capabilities";
 /**
  * Hybrid executor (Phase 2) — runs a HybridQueryPlan against the two existing
  * deterministic layers. It never fuses scores: each execution order has exactly
@@ -27,7 +28,7 @@ import { constraintsFromQuery } from "../search/constraints";
 import { buildLexicalIndex } from "../text/tokenize";
 import { wordScores, meaningScores } from "../search/retrieve";
 import { embedQuery } from "../text/embed";
-import { mockScores, runJevJudgement, subjectsOf, runMarketEligibility, type EligibilityBatch } from "../jev/capabilities";
+import { mockScores, runJevJudgement, subjectsOf, runMarketEligibility, type EligibilityBatch } from "../intelligence/capabilities";
 import { profileTermHits } from "../atlas/evidence";
 import { SHOWN, fuse } from "../search/score";
 import { runSearch } from "../search/pipeline";
@@ -39,7 +40,7 @@ import { loadMarketStateManifest, loadMarketStateRows } from "../market/state";
 import { loadPrevTradingDaySnapshot, passesDayComparison, type PrevDayRow } from "../market/prevday";
 import type { RequestOrigin } from "../telemetry/organic";
 import { computeJevValue, recordJevCall } from "../telemetry/jev";
-import { drainSystemOneObservations } from "../jev/capabilities";
+import { drainSystemOneObservations } from "../intelligence/capabilities";
 import { heroMetricOf, HERO_LABELS, formatHeroValue } from "./hero";
 import { compileHybridQuery, compileLegacyHybridQuery } from "./compile";
 import { selectMarketMembers, type SelectionBudget } from "./market-selection";
@@ -61,7 +62,7 @@ export type SemanticOutcome = {
   matches: number;
   searchId: string | null;
   degraded: boolean;
-  decidedBy: "jev" | "retrieval";
+  decidedBy: "jev" | "laya" | "retrieval";
   judgeOutcome: string | null;
   intelligence?: SearchIntelligence;
   /** Live judgements by code (Phase 3.4); absent when the answer is degraded. */
@@ -212,7 +213,7 @@ async function defaultSemanticEngine(query: string, options: HybridExecuteOption
     matches: result.matches,
     searchId: result.searchId ?? null,
     degraded: result.degraded,
-    decidedBy: result.decidedBy === "jev" ? "jev" : "retrieval",
+    decidedBy: result.decidedBy,
     judgeOutcome: result.judge?.outcome ?? null,
     intelligence: result.intelligence,
     judgements: result.judgements,
@@ -274,7 +275,7 @@ async function defaultSubsetScorer(query: string, subset: Company[], options: Hy
       model: judgement.runtimeModel,
       outcome: "ok",
       intelligence: {
-        provider: "jev",
+        provider: currentJudgeId(),
         capability: judgement.capability,
         contractVersion: judgement.contractVersion,
         runtimeModel: judgement.runtimeModel,
@@ -609,7 +610,7 @@ export async function runHybridQuery(raw: string, options: HybridExecuteOptions 
       const call = answer.call;
       if (call) {
         calls++; tokens += call.tokens; latency += call.timings.totalMs;
-        intelligence = { provider: call.live ? "jev" : "none", capability: call.capability, contractVersion: call.contractVersion, runtimeModel: call.runtimeModel, degraded: !call.live };
+        intelligence = { provider: call.live ? currentJudgeId() : "none", capability: call.capability, contractVersion: call.contractVersion, runtimeModel: call.runtimeModel, degraded: !call.live };
         if (options.traceId) {
           const observations = drainSystemOneObservations(at);
           void recordJevCall({ searchId: options.traceId, sessionId: options.sessionId, invocation: "market_first_scoring", capability: call.capability, contractVersion: call.contractVersion, runtimeModel: call.runtimeModel, status: call.status, outcome: call.outcome, subjectCount: subset.length - answer.cacheHits, decisionCount: call.decisions.length, chunkCount: call.chunks, answeredChunks: call.answeredChunks, tokens: call.tokens, costUsd: call.costUsd, judgeMs: call.timings.judgeMs, totalMs: call.timings.totalMs, retries: observations.filter(o => o.attempt > 1).length, timeouts: observations.filter(o => o.outcome === "timeout" || o.outcome === "connect_timeout").length });
@@ -773,7 +774,7 @@ export async function runHybridQuery(raw: string, options: HybridExecuteOptions 
       };
     });
   const mergeMs = round(performance.now() - mergeStarted);
-  const decidedByJev = subsetScores.live && subsetScores.model ? "jev" : "retrieval";
+  const decidedByJev = subsetScores.live && subsetScores.model ? currentJudgeId() : "retrieval";
   const marketFirstResult = finish(results, {
     order: "market-first",
     degraded: !subsetScores.live,
@@ -787,7 +788,7 @@ export async function runHybridQuery(raw: string, options: HybridExecuteOptions 
   // order Jev received vs the final answer (Jev decides WHO is shown, the
   // market metric keeps the order). Null when the judge did not decide.
   const jevValue =
-    decidedByJev === "jev" && subsetScores.jev
+    decidedByJev !== "retrieval" && subsetScores.jev
       ? computeJevValue(
           postEligibleRows.map((row) => row.code),
           results.map((row) => row.code),
@@ -796,7 +797,7 @@ export async function runHybridQuery(raw: string, options: HybridExecuteOptions 
       : null;
   // §4 query-level rollup for the Jev call this layer made itself.
   const jevSummary =
-    subsetScores.jev && decidedByJev === "jev"
+    subsetScores.jev && decidedByJev !== "retrieval"
       ? {
           calls: 1,
           tokens: subsetScores.jev.tokens,

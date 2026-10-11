@@ -15,7 +15,12 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "scripts"))
+sys.path.insert(0, str(ROOT / "training/laya/legacy/source-scripts"))
+import laya_v4_roles as historical_roles
+# Explicit artifact root for a read-only historical contract replay.
+historical_roles.ROOT = ROOT
+historical_roles.ENRICHMENT_FILE = ROOT / "data/enrichment/semiconductor/enrichment.json"
+historical_roles.PROFILES_FILE = ROOT / "data/search_profiles_v3.json"
 
 from laya_v4_roles import (  # noqa: E402
     GRADER_VERSION,

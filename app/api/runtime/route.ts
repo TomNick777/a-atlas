@@ -1,6 +1,7 @@
 import { defaultStore } from "@/lib/telemetry/store";
 import { probeDataServiceHealth } from "@/lib/telemetry/runtime";
 import { runtimeSnapshot } from "@/lib/atlas/runtime";
+import { judgeProviders, parseProvider, withJudgeProvider } from "@/lib/intelligence/capabilities";
 
 export const dynamic = "force-dynamic";
 
@@ -12,12 +13,18 @@ export const dynamic = "force-dynamic";
  * percentiles, judge provider state and the recent incident records the telemetry
  * layer already keeps.
  */
-export async function GET() {
+export async function GET(request: Request) {
+  let selected;
+  try { selected = parseProvider(new URL(request.url).searchParams.get("provider") ?? undefined); }
+  catch { return Response.json({ error: "provider must be jev or laya" }, { status: 400 }); }
+  const providers = await judgeProviders();
+  return withJudgeProvider(selected, async () => {
   const data = await probeDataServiceHealth();
   const incidents = (await defaultStore.readIncidents()).slice(-20).reverse();
   return Response.json(
     {
       ...runtimeSnapshot({ dataReachable: data.ok, dataVersion: data.version, dataError: data.error }),
+      providers,
       incidents: incidents.map((row) => ({
         at: row.timestamp,
         kind: row.eventType,
@@ -28,4 +35,5 @@ export async function GET() {
     },
     { headers: { "Cache-Control": "no-store" } },
   );
+  });
 }

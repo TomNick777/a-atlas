@@ -1,5 +1,18 @@
 # A-Atlas｜A股星图
 
+
+## Atlas / Trawler 集成分支（2026-10-12）
+
+用户已明确授权按 `docs/ATLAS_TRAWLER_MERGER_PLAN_2026_10_12.md` 一次完整合并；当前在集成分支实施，总验收与正式切换尚未完成。此项明确需求解除下文 Jev-only / Laya 归 trawler 的限制，其他 parser、事实、M3、冻结质量与小产品表面纪律继续适用。
+
+- Atlas owns facts; the explicitly selected judge owns judgement。统一 seam 为 `lib/intelligence/capabilities`，backend 只经该 seam 消费两个 adapter；components 零 intelligence import。
+- 每次请求只使用明确选择的 Jev 或 Laya，实际身份核验并固定；不得无声切换、混用缓存、篡改历史答案的模型/证据。
+- 核心运行时 Web 3400 + Data 8920，可选 Laya 8787；训练任务独立。Laya active 只来自私有 registry，不用 latest/hub 回落。
+- corpus 是唯一生产语义事实层。历史训练输入保留自己的模式与出处；标签来源、组隔离、精确恢复和独立质量准入必须如实记录。候选训练成功不等于 qualified。
+- 模型、训练状态、私有数据与真实响应不进入公开历史。总验收、Harbor 配套和回退演练齐全后才正式切换并停用旧入口；未通过时不宣布完成。
+- 现行实现契约见 `docs/ATLAS_TRAWLER_MERGER_RUNTIME.md`。下文冻结阶段文档保留历史，不能用旧阶段的 PASS 代替此次验收。
+
+
 一个工具：**用自然语言，在整个 A 股公司池中发现公司。**
 
 产品只有两个面：发现 `/`（物理堆 + 搜索）与公司 `/stock/:symbol`（一张展开的公司卡）。

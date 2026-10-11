@@ -6,11 +6,11 @@
 import { execSync } from "node:child_process";
 import { loadDataset } from "../../../lib/companies";
 import { loadCommittedMarketStateManifest } from "../../../lib/market/state";
-import { JEV_CAPABILITY_CONTRACT_VERSIONS, JEV_CAPABILITY_REGISTRY_VERSION, JEV_PRODUCTION_MODEL, jevJudgeAvailability, jevJudgeRuntime } from "../../../lib/jev/capabilities";
+import { JEV_CAPABILITY_CONTRACT_VERSIONS, JEV_CAPABILITY_REGISTRY_VERSION, JEV_PRODUCTION_MODEL, jevJudgeAvailability, jevJudgeRuntime } from "../../../lib/intelligence/capabilities";
 import { QUERY_GRAMMAR_REGISTRY_VERSION } from "../../../lib/planner/grammar";
 import { PARSER_V2_VERSION } from "../../../lib/planner/contracts";
 import { HYBRID_PLANNER_VERSION, MARKET_SELECTION_VERSION } from "../../../lib/hybrid/contracts";
-import { MARKET_ELIGIBILITY_VERSION } from "../../../lib/jev/capabilities";
+import { MARKET_ELIGIBILITY_VERSION } from "../../../lib/intelligence/capabilities";
 import { EVIDENCE_VIEW_VERSION } from "../../../lib/atlas/evidence";
 import { PRODUCTION_CONTRACT } from "../../../lib/telemetry/contract";
 import { jevBaseUrl, jevModel } from "../../../lib/env";
@@ -33,6 +33,7 @@ export type EnvironmentPin = {
   benchmark: { version: string; sha16: string };
   corpus: { digest16: string; companyCount: number };
   market: { digest16: string; latestTradingDay: string | null };
+  judge: { provider: string; artifactSha: string | null };
   jev: {
     endpoint: string;
     aliasRequested: string;
@@ -68,10 +69,11 @@ export function collectEnvironmentPin(benchmark: { benchmarkVersion: string; sha
     benchmark: { version: benchmark.benchmarkVersion, sha16: benchmark.sha16 },
     corpus: { digest16: dataset.corpus?.contentDigest16 ?? "", companyCount: dataset.companies.length },
     market: { digest16: (market?.contentDigest.value ?? "").slice(0, 16), latestTradingDay: market?.latestTradingDay ?? null },
+    judge: { provider: jevJudgeRuntime().status.provider, artifactSha: jevJudgeRuntime().status.artifactSha ?? null },
     jev: {
-      endpoint: jevBaseUrl(),
-      aliasRequested: jevModel(),
-      productionContract: JEV_PRODUCTION_MODEL,
+      endpoint: jevJudgeRuntime().status.endpoint,
+      aliasRequested: jevJudgeRuntime().status.model,
+      productionContract: jevJudgeRuntime().status.provider === "jev" ? JEV_PRODUCTION_MODEL : "laya-adapter-1",
       answeredModel: jevJudgeRuntime().status.lastAnsweredModel,
       configured: jevJudgeAvailability().configured,
       breaker: jevJudgeAvailability().breaker,

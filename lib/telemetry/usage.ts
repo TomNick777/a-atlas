@@ -34,6 +34,7 @@ export type UsageSummary = {
     stageMedianMs: { parser: number | null; semantic: number | null; market: number | null; merge: number | null };
     pipelineMedianMs: { parse: number | null; retrieval: number | null; rerank: number | null; total: number | null };
   };
+  judges: Record<string, { calls: number; tokens: number; cloudCostUsd: number | null; runtimeModels: string[] }>;
   jev: {
     calls: number;
     searchesWithJev: number;
@@ -107,6 +108,18 @@ export async function buildUsageSummary(store: TelemetryStore, range: UsageRange
     .map((event) => num(event.payload.serverTotalMs))
     .filter((n): n is number => n != null && n > 0);
 
+  const genericCalls = events.filter(event => event.eventType === "JUDGE_CALL");
+  const genericIds = new Set(genericCalls.map(event => event.payload.callId));
+  const allJudgeCalls = [...genericCalls, ...events.filter(event => event.eventType === "JEV_CALL" && !genericIds.has(event.payload.callId))];
+  const judges: UsageSummary["judges"] = {};
+  for (const call of allJudgeCalls) {
+    const provider = String(call.payload.provider ?? "jev");
+    const bucket = judges[provider] ??= { calls: 0, tokens: 0, cloudCostUsd: provider === "jev" ? 0 : null, runtimeModels: [] };
+    bucket.calls++; bucket.tokens += num(call.payload.tokens) ?? 0;
+    if (bucket.cloudCostUsd !== null) bucket.cloudCostUsd += num(call.payload.costUsd) ?? 0;
+    const model = call.payload.runtimeModel;
+    if (typeof model === "string" && !bucket.runtimeModels.includes(model)) bucket.runtimeModels.push(model);
+  }
   // ---- Jev ----
   const jevCalls = events.filter((event) => event.eventType === "JEV_CALL");
   const searchIdsWithJev = new Set(jevCalls.map((event) => event.searchId));
@@ -184,6 +197,7 @@ export async function buildUsageSummary(store: TelemetryStore, range: UsageRange
         total: median(pipelineTotal),
       },
     },
+    judges,
     jev: {
       calls: jevCalls.length,
       searchesWithJev: searchIdsWithJev.size,
@@ -224,6 +238,7 @@ export type TraceView = {
   ready: TelemetryEnvelope | null;
   pipeline: TelemetryEnvelope[];
   jevCalls: TelemetryEnvelope[];
+  judgeCalls: TelemetryEnvelope[];
   interactions: TelemetryEnvelope[];
   feedback: TelemetryEnvelope[];
   incidents: TelemetryEnvelope[];
@@ -239,8 +254,9 @@ export async function buildTraceView(store: TelemetryStore, searchId: string): P
     searchId,
     received: byType("DISCOVER_RECEIVED")[0] ?? byType("SEARCH_RECEIVED")[0] ?? null,
     ready: byType("DISCOVER_RESPONSE_READY")[0] ?? byType("SEARCH_RESPONSE_READY")[0] ?? null,
-    pipeline: events.filter((event) => event.category === "search" && !["DISCOVER_RECEIVED", "DISCOVER_RESPONSE_READY", "JEV_CALL"].includes(event.eventType)),
+    pipeline: events.filter((event) => event.category === "search" && !["DISCOVER_RECEIVED", "DISCOVER_RESPONSE_READY", "JEV_CALL", "JUDGE_CALL"].includes(event.eventType)),
     jevCalls: byType("JEV_CALL"),
+    judgeCalls: [...byType("JUDGE_CALL"), ...byType("JEV_CALL").filter(event => !byType("JUDGE_CALL").some(generic => generic.payload.callId === event.payload.callId))],
     interactions: events.filter((event) => event.category === "interaction"),
     feedback: byType("SEARCH_FEEDBACK"),
     incidents,

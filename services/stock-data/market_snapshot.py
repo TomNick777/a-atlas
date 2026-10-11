@@ -48,6 +48,15 @@ def finite(value):
     return isinstance(value, (int, float)) and math.isfinite(value)
 
 
+def source_anchor(context, now):
+    """The source clock pauses during lunch and the post-auction gap."""
+    if context["phase"] == "lunch":
+        return now.replace(hour=11, minute=30, second=0, microsecond=0)
+    if context["phase"] == "auction" and now.hour * 60 + now.minute >= 565:
+        return now.replace(hour=9, minute=25, second=0, microsecond=0)
+    return now
+
+
 def validate_row(symbol, row, context, now):
     if not row:
         return "MISSING"
@@ -82,11 +91,7 @@ def validate_row(symbol, row, context, now):
         if source.hour * 60 + source.minute < 900:
             return "INCOMPLETE_CLOSE"
     else:
-        anchor = now
-        if phase == "lunch":
-            anchor = now.replace(hour=11, minute=30, second=0, microsecond=0)
-        if phase == "auction" and now.hour * 60 + now.minute >= 565:
-            anchor = now.replace(hour=9, minute=25, second=0, microsecond=0)
+        anchor = source_anchor(context, now)
         if (anchor - source).total_seconds() > POLICY["maxSourceAgeSeconds"]:
             return "STALE_TIME"
     computed = (row["price"] / row["last_close"] - 1) * 100

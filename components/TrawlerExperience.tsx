@@ -12,6 +12,8 @@ import { EvidencePeek, type PeekState } from "./evidence/EvidencePeek";
 import { Inspector } from "./debug/Inspector";
 import { SearchComposer } from "./SearchComposer";
 import { SearchFeedback } from "./SearchFeedback";
+import { readJudgeChoice, subscribeJudgeChoice, writeJudgeChoice } from "./judgePreference";
+import { useTrainingJudgeIntent } from "./useTrainingJudgeIntent";
 import { SettingsPanel } from "./SettingsPanel";
 import {
   DEFAULT_CARD_FACE,
@@ -27,6 +29,7 @@ import {
 } from "./floor/theme";
 
 export function TrawlerExperience({ plates, universeCount }: { plates: Plate[]; universeCount: number }) {
+  useTrainingJudgeIntent();
   const floor = useRef<FloorApi | null>(null);
   const bar = useRef<HTMLDivElement>(null);
   const router = useRouter();
@@ -47,9 +50,11 @@ export function TrawlerExperience({ plates, universeCount }: { plates: Plate[]; 
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Server snapshot is the classic default; the client snapshot reads localStorage.
   const theme = useSyncExternalStore(subscribeCardTheme, readCardTheme, () => DEFAULT_CARD_THEME);
+  const judgeProvider = useSyncExternalStore(subscribeJudgeChoice, readJudgeChoice, () => "jev" as const);
   const face = useSyncExternalStore(subscribeCardFace, readCardFace, () => DEFAULT_CARD_FACE);
   const request = useRef<AbortController | null>(null);
   const lastQuery = useRef("");
+  const lastRawQuery = useRef("");
   const lastKey = useRef(0);
   const lastSearchId = useRef<string | null>(null);
   // §8 反馈行按渲染读取（refs 不能在渲染期读）：最近一次完成搜索的 id 与 query。
@@ -82,9 +87,10 @@ export function TrawlerExperience({ plates, universeCount }: { plates: Plate[]; 
     async (raw: string) => {
       const query = raw.trim();
       if (query.length < 2) return;
-      if (query === lastQuery.current && phase === "done") return;
+      if (`${judgeProvider}:${query}` === lastQuery.current && phase === "done") return;
       const resultsWereVisible = phase === "done";
-      lastQuery.current = query;
+      lastQuery.current = `${judgeProvider}:${query}`;
+      lastRawQuery.current = query;
       request.current?.abort();
       const controller = new AbortController();
       request.current = controller;
@@ -98,7 +104,7 @@ export function TrawlerExperience({ plates, universeCount }: { plates: Plate[]; 
         const response = await fetch("/api/discover", {
           method: "POST",
           headers: { "content-type": "application/json", "x-session-id": sessionIdHeader() },
-          body: JSON.stringify({ query, sessionId: sessionIdHeader() }),
+          body: JSON.stringify({ query, provider: judgeProvider, sessionId: sessionIdHeader() }),
           signal: controller.signal,
         });
         const data = (await response.json()) as HybridDiscoverPresented & { error?: string; ms?: number };
@@ -181,7 +187,7 @@ export function TrawlerExperience({ plates, universeCount }: { plates: Plate[]; 
         setNotice(error instanceof Error ? error.message : "搜索失败");
       }
     },
-    [anchor, phase],
+    [anchor, phase, judgeProvider],
   );
 
   const onType = useCallback(
@@ -228,11 +234,12 @@ export function TrawlerExperience({ plates, universeCount }: { plates: Plate[]; 
     (plate: PlateOpen) => {
       trackClientEvent(
         "RESULT_OPEN_DETAIL",
-        { code: plate.code, name: plate.name, query: lastQuery.current || null, probability: plate.probability },
+        { code: plate.code, name: plate.name, query: lastRawQuery.current || null, probability: plate.probability },
         lastSearchId.current,
       );
       const context = new URLSearchParams();
-      if (lastQuery.current) context.set("q", lastQuery.current);
+      if (lastSearchId.current) context.set("s", lastSearchId.current);
+      if (lastRawQuery.current) context.set("q", lastRawQuery.current);
       if (plate.probability !== null) context.set("m", plate.probability.toFixed(4));
       // The capability rides along so the company page labels the judgement
       // honestly (match vs relation) without re-deriving it.
@@ -293,7 +300,7 @@ export function TrawlerExperience({ plates, universeCount }: { plates: Plate[]; 
             {toast.text}
           </p>
         )}
-        <SettingsPanel theme={theme} onSelectTheme={setTheme} face={face} onSelectFace={setFace} />
+        <SettingsPanel judge={judgeProvider} onSelectJudge={writeJudgeChoice} theme={theme} onSelectTheme={setTheme} face={face} onSelectFace={setFace} />
       </div>
       <Inspector trace={trace} />
     </>

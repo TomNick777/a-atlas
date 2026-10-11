@@ -1,3 +1,4 @@
+import { currentJudgeId, jevJudgeRuntime } from "../intelligence/capabilities";
 import { emit } from "./emit";
 import type { TelemetryStore } from "./store";
 
@@ -49,11 +50,10 @@ export function newJevCallId(): string {
 }
 
 export async function recordJevCall(evidence: JevCallEvidence): Promise<void> {
-  await emit(
-    "JEV_CALL",
-    "search",
-    {
+  const payload = {
       callId: newJevCallId(),
+      provider: currentJudgeId(),
+        ...(currentJudgeId() === "laya" ? { localSnapshot: { resources: jevJudgeRuntime().status.localResources ?? null, timing: jevJudgeRuntime().stats.localTiming ?? null } } : {}),
       invocation: evidence.invocation,
       capability: evidence.capability,
       contractVersion: evidence.contractVersion,
@@ -73,9 +73,13 @@ export async function recordJevCall(evidence: JevCallEvidence): Promise<void> {
       retries: evidence.retries ?? null,
       timeouts: evidence.timeouts ?? null,
       cacheHit: evidence.cacheHit ?? false,
-    },
-    { searchId: evidence.searchId, sessionId: evidence.sessionId ?? null, store: evidence.store },
-  );
+    };
+  const options = { searchId: evidence.searchId, sessionId: evidence.sessionId ?? null, store: evidence.store };
+  await emit("JUDGE_CALL", "search", payload, options);
+  if (currentJudgeId() === "jev") {
+    const { provider: _provider, ...legacyPayload } = payload;
+    await emit("JEV_CALL", "search", legacyPayload, options);
+  }
 }
 
 // ---------------------------------------------------------------------------

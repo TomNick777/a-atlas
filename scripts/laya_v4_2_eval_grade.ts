@@ -37,7 +37,7 @@ async function main() {
   const pools: Record<string, { query: string; candidates: { code: string; name: string; profile?: string }[] }> =
     doc.pools ?? doc;
 
-  const { judgeGraded } = await import("../lib/jev/judge");
+  const { judgeGraded } = await import("../lib/intelligence/judge");
   const out: Record<string, unknown> = {};
   let done = 0;
   for (const [key, pool] of Object.entries(pools)) {

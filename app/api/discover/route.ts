@@ -1,5 +1,6 @@
+import { parseProvider, withJudgeProvider } from "@/lib/intelligence/capabilities";
 import { runHybridQuery } from "@/lib/hybrid/execute";
-import { discoverCacheKey, lookupDiscover, storeDiscover } from "@/lib/atlas/discoverCache";
+import { discoverCacheKey, lookupDiscover, storeDiscover, recordDiscoverAnswer } from "@/lib/atlas/discoverCache";
 import { presentDiscoverResult } from "@/lib/atlas/evidence";
 import { normalizeOrigin } from "@/lib/telemetry/organic";
 import { isValidSessionId, newSearchId } from "@/lib/telemetry/ids";
@@ -28,7 +29,7 @@ import { prepareMarketForQuery } from "@/lib/market/refresh";
  * unsupported intents, which the pipeline's own events never saw. Telemetry is
  * fire-and-forget: it cannot fail, delay or change the answer (§1.2).
  */
-export async function POST(request: Request) {
+async function discover(request: Request) {
   const started = performance.now();
   const body = (await request.json().catch(() => null)) as { query?: unknown; origin?: unknown; sessionId?: unknown } | null;
   const query = typeof body?.query === "string" ? body.query.trim().slice(0, 120) : "";
@@ -63,6 +64,7 @@ export async function POST(request: Request) {
     return Response.json({ error: message, searchId: traceId }, { status: 503 });
   }
   if (hit) {
+    recordDiscoverAnswer(traceId, hit);
     // §9 cache observability: a replay is recorded with the answer the user
     // saw and the run that produced it — never re-executed, never re-judged.
     void discoverReceived({ searchId: traceId, rawQuery: query, origin, sessionId, cached: true, corrupt: corruptQuery });
@@ -82,14 +84,15 @@ export async function POST(request: Request) {
 
   let result;
   try {
-    result = await runHybridQuery(query, { log: true, origin, sessionId, corrupt: corruptQuery, traceId });
+    result = await runHybridQuery(query, { log: true, origin, sessionId, corrupt: corruptQuery, traceId, signal: request.signal });
   } catch (error) {
     // §10: a crash is a trace too — recorded with its message, answered 503.
     const message = error instanceof Error ? error.message : "搜索失败。";
     void discoverFailed({ searchId: traceId, sessionId, message });
     return Response.json({ error: message, searchId: traceId }, { status: 503 });
   }
-  if (result.results.length && !result.execution.degraded) storeDiscover(key, result);
+  if (result.results.length && !result.execution.degraded) storeDiscover(discoverCacheKey(query), result);
+  recordDiscoverAnswer(traceId, result);
   if (result.execution.order !== "semantic-only") noteSearch(result.execution.degraded ? "degraded" : "ok");
   void discoverCompleted({
     searchId: traceId,
@@ -100,4 +103,11 @@ export async function POST(request: Request) {
     serverMs: performance.now() - started,
   });
   return Response.json({ ...presentDiscoverResult(result), cached: false, searchId: traceId, ms: Math.round(performance.now() - started) });
+}
+
+export async function POST(request: Request) {
+  const body = await request.clone().json().catch(() => null);
+  let provider;
+  try { provider = parseProvider(body?.provider); } catch { return Response.json({ error: "请选择 Jev 或 Laya。" }, { status: 400 }); }
+  return withJudgeProvider(provider, () => discover(request));
 }

@@ -1,3 +1,5 @@
+import { lookupAnswerRecord } from "@/lib/atlas/discoverCache";
+import { DailyChart } from "@/components/company/DailyChart";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -13,7 +15,7 @@ export const dynamic = "force-dynamic";
 
 type Props = {
   params: Promise<{ symbol: string }>;
-  searchParams: Promise<{ q?: string | string[]; m?: string | string[]; c?: string | string[] }>;
+  searchParams: Promise<{ q?: string | string[]; m?: string | string[]; s?: string | string[]; c?: string | string[] }>;
 };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -55,17 +57,19 @@ export default async function StockPage({ params, searchParams }: Props) {
 
   const search = await searchParams;
   const query = typeof search.q === "string" ? search.q : "";
-  const matchValue = typeof search.m === "string" ? Number.parseFloat(search.m) : NaN;
+  const record = lookupAnswerRecord(typeof search.s === "string" ? search.s : undefined, query);
+  const recordedJudgement = record?.answer.results.find(row => row.code === company.code)?.judgement;
+  const matchValue = recordedJudgement?.score ?? NaN;
   const matchPct = Number.isFinite(matchValue) && matchValue >= 0 && matchValue <= 1 ? Math.round(matchValue * 100) : null;
   // Which capability judged this hit rides in the URL (match|relation): the
   // relation label shown is the judged phrase itself, verbatim from the query.
-  const isRelation = search.c === "relation";
+  const isRelation = recordedJudgement?.capability === "semantic_relation";
   const capabilityLabel = isRelation ? "关系匹配" : "语义匹配";
   const generatedAt = datasetGeneratedAt()?.slice(0, 10) ?? null;
   // Level 3 — Evidence Inspector facts (server-resolved, always the text Jev
   // judged on). Surfaced only behind a real judgement from the URL; without
   // one there is no claim to ground and the page keeps the plain query line.
-  const evidenceViews = query && matchPct !== null ? [judgeProfileEvidenceView(company.code)].filter((view): view is NonNullable<typeof view> => view !== null) : [];
+  const evidenceViews = query && recordedJudgement ? record?.evidence[company.code] ?? [] : [];
 
   return (
     <main className="mx-auto w-full max-w-3xl px-6 pb-16 pt-16">
@@ -105,7 +109,7 @@ export default async function StockPage({ params, searchParams }: Props) {
           scorePct={matchPct}
           views={evidenceViews}
         >
-          {evidenceViews.length > 0 && <EvidenceWhy q={query} code={company.code} />}
+          {evidenceViews.length > 0 && <EvidenceWhy q={query} code={company.code} searchId={typeof search.s === "string" ? search.s : undefined} />}
         </EvidenceSection>
       )}
       {query && matchPct === null && (
@@ -144,6 +148,7 @@ export default async function StockPage({ params, searchParams }: Props) {
 
         {/* 数据底座四块（refocus §七）：市场快照/基础财务/最近公告/最近研报，
             分块如实降级，provenance 轻量可见。 */}
+        <DailyChart code={company.code} />
         <CompanyDataSections symbol={company.code} />
 
         {company.concepts.length > 0 && (

@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { POST as explainPOST } from "../app/api/explain/route";
 import { discoverCacheKey, storeDiscover } from "../lib/atlas/discoverCache";
-import { setJevProviderOverride } from "../lib/jev/cloud";
-import { judgeProfileText } from "../lib/jev/capabilities";
-import type { JevCall, JudgeProvider, ProviderStats, ProviderStatus } from "../lib/jev/provider";
+import { setJevProviderOverride } from "../lib/intelligence/runtime";
+import { judgeProfileText } from "../lib/intelligence/capabilities";
+import type { JevCall, JudgeProvider, ProviderStats, ProviderStatus } from "../lib/intelligence/contracts";
 import { loadDataset } from "../lib/companies";
 import type { HybridDiscoverResult } from "../lib/hybrid/contracts";
 import type { ResultJudgement } from "../lib/types";

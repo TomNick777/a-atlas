@@ -85,6 +85,28 @@ class SharedRefresh(unittest.TestCase):
         if mr._job: mr._job.join(2)
         mr._job = None; mr._failure = None; mr._retry_after = 0
 
+    def check_refresh(self, now, stamp, expected):
+        universe_sha = hashlib.sha256((ms.REPO / "data" / "companies.json").read_bytes()).hexdigest()[:16]
+        context = ms.session(now)
+        manifest = {"inputs": {"universeSha16": universe_sha}, "runtime": {
+            "tradeDate": context["tradeDate"], "phase": context["phase"],
+            "endedAt": now.isoformat(), "sourceTimeMin": stamp}}
+        with patch.object(mr, "current", return_value=(Path("."), manifest)), patch.object(mr, "session", return_value=context), patch.object(mr.time, "time", return_value=now.timestamp()), patch.object(mr, "_refresh") as refresh:
+            mr.market_snapshot()
+            self.assertEqual(refresh.call_count, expected)
+
+    def test_delayed_source_refreshes_before_web_expiry_even_when_just_collected(self):
+        # Observed live: source already ~80s old at collection, then expires
+        # before the fetchedAt-based 60s timer. Reserve collection time.
+        self.check_refresh(datetime(2026, 10, 8, 10, 1, 31, tzinfo=ms.CN), "20261008100000", 1)
+
+    def test_fresh_source_reuses_snapshot_without_extra_collection(self):
+        self.check_refresh(datetime(2026, 10, 8, 10, 1, 0, tzinfo=ms.CN), "20261008100000", 0)
+
+    def test_source_deadline_uses_paused_clock_in_lunch_and_auction_gap(self):
+        self.check_refresh(datetime(2026, 10, 8, 12, 30, tzinfo=ms.CN), "20261008113000", 0)
+        self.check_refresh(datetime(2026, 10, 8, 9, 29, tzinfo=ms.CN), "20261008092500", 0)
+
     def test_concurrent_requests_start_one_collection(self):
         entered, release = threading.Event(), threading.Event()
         def work(_): entered.set(); release.wait(2)

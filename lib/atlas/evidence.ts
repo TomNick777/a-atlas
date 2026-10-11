@@ -16,7 +16,7 @@ import { loadDataset } from "@/lib/companies";
 import { findCompany } from "@/lib/atlas/company";
 import { LruCache } from "@/lib/cache";
 import { parseQuerySpec } from "@/lib/search/querySpec";
-import { judgeEvidenceOf, judgeProfileRef, judgeProfileText, type EvidenceItem, type EvidenceRef } from "@/lib/jev/capabilities";
+import { judgeEvidenceOf, judgeProfileRef, judgeProfileText, type EvidenceItem, type EvidenceRef } from "@/lib/intelligence/capabilities";
 import type { Company, ResultJudgement, SearchHit, SearchResult } from "@/lib/types";
 import type { HybridDiscoverResult, HybridResultRow } from "@/lib/hybrid/contracts";
 

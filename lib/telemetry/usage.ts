@@ -41,12 +41,12 @@ export type UsageSummary = {
     callsPerSearch: number | null;
     tokensTotal: number;
     tokensPerSearch: number | null;
-    costTotalUsd: number;
+    costTotalUsd: number | null;
     costPerSearchUsd: number | null;
     costIsEstimated: true;
     zeroJevOrganicSearches: number;
     cacheHits: number;
-    byCapability: Record<string, { calls: number; tokens: number; costUsd: number; degraded: number }>;
+    byCapability: Record<string, { calls: number; tokens: number; costUsd: number | null; degraded: number }>;
   };
   interaction: {
     openDetail: number;
@@ -116,7 +116,7 @@ export async function buildUsageSummary(store: TelemetryStore, range: UsageRange
     const provider = String(call.payload.provider ?? "jev");
     const bucket = judges[provider] ??= { calls: 0, tokens: 0, cloudCostUsd: provider === "jev" ? 0 : null, runtimeModels: [] };
     bucket.calls++; bucket.tokens += num(call.payload.tokens) ?? 0;
-    if (bucket.cloudCostUsd !== null) bucket.cloudCostUsd += num(call.payload.costUsd) ?? 0;
+    if (bucket.cloudCostUsd !== null) { const cost = num(call.payload.costUsd); bucket.cloudCostUsd = cost === null ? null : bucket.cloudCostUsd + cost; }
     const model = call.payload.runtimeModel;
     if (typeof model === "string" && !bucket.runtimeModels.includes(model)) bucket.runtimeModels.push(model);
   }
@@ -131,7 +131,7 @@ export async function buildUsageSummary(store: TelemetryStore, range: UsageRange
     const bucket = (byCapability[capability] ??= { calls: 0, tokens: 0, costUsd: 0, degraded: 0 });
     bucket.calls += 1;
     bucket.tokens += num(call.payload.tokens) ?? 0;
-    bucket.costUsd += num(call.payload.costUsd) ?? 0;
+    if (bucket.costUsd !== null) { const cost = num(call.payload.costUsd); bucket.costUsd = cost === null ? null : bucket.costUsd + cost; }
     if (call.payload.status === "degraded" || call.payload.status === "rejected") bucket.degraded += 1;
   }
   const zeroJev = organicReady.filter((event) => event.searchId != null && !searchIdsWithJev.has(event.searchId)).length;
@@ -204,8 +204,8 @@ export async function buildUsageSummary(store: TelemetryStore, range: UsageRange
       callsPerSearch: rate(jevCalls.length, organicReady.length),
       tokensTotal: tokens.reduce((sum, n) => sum + n, 0),
       tokensPerSearch: rate(tokens.reduce((sum, n) => sum + n, 0), organicReady.length),
-      costTotalUsd: Math.round(costs.reduce((sum, n) => sum + n, 0) * 1e6) / 1e6,
-      costPerSearchUsd: organicReady.length ? Math.round(((costs.reduce((sum, n) => sum + n, 0)) / organicReady.length) * 1e6) / 1e6 : null,
+      costTotalUsd: costs.length === jevCalls.length ? Math.round(costs.reduce((sum, n) => sum + n, 0) * 1e6) / 1e6 : null,
+      costPerSearchUsd: organicReady.length && costs.length === jevCalls.length ? Math.round(((costs.reduce((sum, n) => sum + n, 0)) / organicReady.length) * 1e6) / 1e6 : null,
       costIsEstimated: true,
       zeroJevOrganicSearches: zeroJev,
       cacheHits: jevCalls.filter((event) => event.payload.cacheHit === true).length,

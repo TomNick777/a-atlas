@@ -80,12 +80,12 @@ export default async function UsagePage({ searchParams }: { searchParams: Promis
       </Section>
 
       <Section title="Judges">
-        {Object.entries(summary.judges).map(([provider, row]) => <Row key={provider} label={provider} value={`${row.calls} calls · ${row.tokens} tokens`} hint={`${row.runtimeModels.join(" / ")} · ${row.cloudCostUsd === null ? "本地推理，云账单不适用" : `$${row.cloudCostUsd.toFixed(6)} estimated`}`} />)}
+        {Object.entries(summary.judges).map(([provider, row]) => <Row key={provider} label={provider} value={`${row.calls} calls · ${row.tokens} tokens`} hint={`${row.runtimeModels.join(" / ")} · ${row.cloudCostUsd === null ? provider === "laya" ? "本地推理，云账单不适用" : "云端估算费用未知" : `$${row.cloudCostUsd.toFixed(6)} estimated`}`} />)}
       </Section>
       <Section title="Jev">
         <Row label="calls / search" value={jev.callsPerSearch ?? "—"} hint={`共 ${jev.calls} 次 capability 调用`} />
         <Row label="tokens / search" value={jev.tokensPerSearch ?? "—"} hint={`共 ${jev.tokensTotal} tokens`} />
-        <Row label="cost / search" value={jev.costPerSearchUsd === null ? "—" : `$${jev.costPerSearchUsd}`} hint={`共 $${jev.costTotalUsd}（estimated，按价格表折算，非账单）`} />
+        <Row label="cost / search" value={jev.costPerSearchUsd === null ? "—" : `$${jev.costPerSearchUsd}`} hint={jev.costTotalUsd === null ? "存在未提供费用口径的调用，总费用未知" : `共 $${jev.costTotalUsd}（estimated，按价格表折算，非账单）`} />
         <Row label="zero-Jev organic searches" value={jev.zeroJevOrganicSearches} hint="这些搜索完全没问 Jev（缓存命中 / market-only / degraded）" />
         <Row label="Jev cache hits" value={jev.cacheHits} hint="A-Atlas 没有结果级 Jev 缓存——该值应恒为 0" />
         {Object.keys(jev.byCapability).length > 0 && (
@@ -94,7 +94,7 @@ export default async function UsagePage({ searchParams }: { searchParams: Promis
             <td className="py-1.5 text-[12.5px] text-[#d9d4c8]" colSpan={2}>
               {Object.entries(jev.byCapability).map(([capability, row]) => (
                 <span key={capability} className="mr-4 inline-block">
-                  {capability}: {row.calls} calls · {row.tokens} tok · ${Math.round(row.costUsd * 1e6) / 1e6}
+                  {capability}: {row.calls} calls · {row.tokens} tok · {row.costUsd === null ? "费用未知" : `$${Math.round(row.costUsd * 1e6) / 1e6}`}
                   {row.degraded > 0 && <span className="text-[#c2803f]"> · {row.degraded} degraded</span>}
                 </span>
               ))}

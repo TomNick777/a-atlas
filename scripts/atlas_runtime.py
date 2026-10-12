@@ -155,8 +155,14 @@ def stop(name):
         import signal
         os.kill(row["pid"], signal.SIGTERM)
     for _ in range(50):
-        if not owned(name):
-            return
+        try:
+            if not owned(name):
+                return
+        except RuntimeError:
+            # Windows can briefly expose an exited PID without CommandLine.
+            # Ownership was checked before termination; never issue another kill.
+            # A persistent unverified/live PID still fails at the deadline.
+            pass
         time.sleep(0.1)
     raise RuntimeError(f"{name} did not stop")
 

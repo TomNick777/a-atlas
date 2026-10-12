@@ -22,6 +22,30 @@ function tmpStore(): TelemetryStore {
   return new TelemetryStore(mkdtempSync(path.join(tmpdir(), "telemetry-usage-")));
 }
 
+it("keeps unknown cloud fees distinct from local inference and deduplicates mirrored calls", async () => {
+  const store = tmpStore();
+  try {
+    const { emit } = await import("../lib/telemetry/emit");
+    const options = { store, component: "next" as const, searchId: "s_cost_unknown" };
+    const call = { callId: "cloud-call", provider: "jev", capability: "semantic_match", tokens: 10, costUsd: null, status: "ok" };
+    await emit("JEV_CALL", "search", call, options);
+    await emit("JUDGE_CALL", "search", call, options);
+    await emit("JEV_CALL", "search", { ...call, callId: "known-call", costUsd: 0.01 }, options);
+    await emit("JUDGE_CALL", "search", { ...call, callId: "local-call", provider: "laya" }, options);
+    await store.flush();
+    const now = new Date();
+    const summary = await buildUsageSummary(store, { since: new Date(now.getTime() - 3600_000).toISOString(), until: now.toISOString() });
+    expect(summary.jev.costTotalUsd).toBeNull();
+    expect(summary.jev.byCapability.semantic_match.costUsd).toBeNull();
+    expect(summary.judges.jev.calls).toBe(2);
+    expect(summary.judges.jev.cloudCostUsd).toBeNull();
+    expect(summary.judges.laya.calls).toBe(1);
+    expect(summary.judges.laya.cloudCostUsd).toBeNull();
+  } finally {
+    rmSync(store.baseDir, { recursive: true, force: true });
+  }
+});
+
 // ---- §1.1 behaviour invariance: telemetry on/off ⇒ identical answers -------
 
 describe("usage baseline — telemetry must not change the answer (§1.1/§19.17)", () => {

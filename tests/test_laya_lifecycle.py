@@ -13,6 +13,13 @@ sys.path.insert(0, str(ROOT / "scripts"))
 import atlas_runtime as runtime
 
 class Lifecycle(unittest.TestCase):
+    def test_stop_waits_for_exited_pid_to_disappear_without_killing_again(self):
+        row = {"pid": 17, "entry": "registered-server.py", "identityArgs": []}
+        snapshot = json.dumps([{"ProcessId": 17, "ParentProcessId": 1, "CommandLine": "registered-server.py"}])
+        with patch.object(runtime.os, "name", "nt"), patch.object(runtime, "owned", side_effect=[row, RuntimeError("command-line unavailable"), None]), patch.object(runtime, "health", return_value=None), patch.object(runtime.subprocess, "check_output", return_value=snapshot), patch.object(runtime.subprocess, "run") as kill, patch.object(runtime.time, "sleep"):
+            runtime.stop("laya")
+            self.assertEqual(kill.call_count, 1)
+
     def test_reused_pid_is_never_killed(self):
         with tempfile.TemporaryDirectory() as directory:
             state = Path(directory)

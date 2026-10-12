@@ -58,6 +58,8 @@ RLCD trainer 写独立 run，保存 optimizer、scheduler、Python/NumPy/Torch/C
 
 ## 交付门槛
 
+2026-10-12 用户裁定：本节冻结质量重复测试为持续训练/模型替代门槛，不再阻断工程正式切换。工程合并验收与 Laya 替代 Jev 的完成状态分别记录；原 v4.1 是可显式选用的现有基线，不代表质量已准入。不合格候选仍不得晋升。现行优先依据为合并计划 §0 与 `LAYA_REPLACEMENT_OBJECTIVE.md`。
+
 冻结 discovery 集两个 provider 各两轮，同一代码/corpus/market/query 坐标；关键关系强度、方向、披露时点和证据解释另走预注册样本。质量失败不改题、不降门槛、不加生产特例。LIVE 使用预登记的共享私有调用/费用账本，预算耗尽即停止。
 
 代码、许可和通用测试可以公开；data、reports、models、恢复状态、真实应答、冻结标签、`.local` 与环境留在本机。`publication:check` 同时检查 index 与全部 reachable refs。Harbor 配套更改只登记一个 Atlas 应用，旧 trawler 登记在总验收通过的正式切换中停用；当前仍保留原正式入口及回退材料。

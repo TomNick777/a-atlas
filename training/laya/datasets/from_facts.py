@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from artifacts import ROOT, sha, atomic_json, private_path
-from groups import isolate
+from groups import isolate, validate_coverage
 
 def main():
     parser = argparse.ArgumentParser()
@@ -88,9 +88,10 @@ def main():
             continue
         if business not in row["searchableText"][:420]:
             continue
-        other = next((candidate for candidate in rows.values() if candidate["symbol"] not in excluded and candidate["identity"]["industry"] != row["identity"]["industry"] and candidate.get("business") and 12 <= len(candidate["business"][0]) <= 130 and candidate["business"][0] not in row["searchableText"]), None)
-        if not other:
+        others = [candidate for candidate in rows.values() if candidate["symbol"] not in excluded and candidate["identity"]["industry"] != row["identity"]["industry"] and candidate.get("business") and 12 <= len(candidate["business"][0]) <= 130 and candidate["business"][0] not in row["searchableText"]]
+        if not others:
             continue
+        other = others[int(hashlib.sha256(row["symbol"].encode()).hexdigest()[:8], 16) % len(others)]
         span = {"evidence": "corpus-profile:" + row["symbol"], "text": row["searchableText"]}
         for query, label in [("找主营业务为" + business, 1), ("找主营业务为" + other["business"][0], 0)]:
             for capability in ("semantic_match", "semantic_comparison"):
@@ -107,11 +108,12 @@ def main():
         task["sourceGroupId"] = source.get("artifactSha256") or source.get("artifactSha") or (source.get("locator", "").split("#", 1)[0]) or task["evidenceRefs"][0]["ref"]
         # All generated rephrasings of a claim must retain this family ID.
         task["queryGroupId"] = hashlib.sha256(task["state"]["looking_for"].strip().encode()).hexdigest()
-    tasks = isolate(tasks)
+    tasks = isolate(tasks, balanced=True)
+    validate_coverage(tasks)
     if not tasks:
         raise ValueError("No evidence remains after group isolation")
     output.mkdir(parents=True)
-    manifest = {"schemaVersion": 1, "mode": "corpus", "purpose": "product continuation with rule labels; independent qualification required", "corpusSha256": sha(corpus_file), "sourceFactsSha256": sha(facts_file), "tokenizerModel": "v4.1", "maxLen": 1024, "headMaxLen": 512, "groupPolicy": "company/source/query-family disjoint v2; incompatible cross-group pairs excluded", "tasksBeforeIsolation": original_count, "exclusionManifestSha256": sha(Path(args.exclude_manifest)), "excludedGroups": sorted(excluded), "tasks": tasks}
+    manifest = {"schemaVersion": 1, "mode": "corpus", "purpose": "product continuation with rule labels; independent qualification required", "corpusSha256": sha(corpus_file), "sourceFactsSha256": sha(facts_file), "tokenizerModel": "v4.1", "maxLen": 1024, "headMaxLen": 512, "groupPolicy": "company/source/query-family disjoint v3; stratified reviewed labels; incompatible cross-group pairs excluded", "tasksBeforeIsolation": original_count, "exclusionManifestSha256": sha(Path(args.exclude_manifest)), "excludedGroups": sorted(excluded), "tasks": tasks}
     atomic_json(output / "source.json", manifest)
     (output / "source.sha256").write_text(sha(output / "source.json") + "\n")
     atomic_json(output / "label-audit.json", {"labelSource": "deterministic rules; needs review, no human sign-off claimed", "counts": counts, "samples": audit})

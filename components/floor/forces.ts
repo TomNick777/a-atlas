@@ -9,6 +9,15 @@ const DAMPING = 0.00046;
 const TURN = 0.0000043;
 const TURN_DAMPING = 0.00026;
 
+/** Change local card aspect without changing its height or current rotation. */
+export function changeCardAspect(body: Matter.Body, previous: number, next: number) {
+  if (previous === next) return;
+  const angle = body.angle;
+  Matter.Body.setAngle(body, 0);
+  Matter.Body.scale(body, next / previous, 1);
+  Matter.Body.setAngle(body, angle);
+}
+
 /** Wake only the neighbours of a spot, never the whole pile. */
 export function wakeAt(scene: Scene, x: number, y: number) {
   const reach = (scene.plateH * 3.2) ** 2;

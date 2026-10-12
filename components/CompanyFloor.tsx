@@ -4,7 +4,7 @@ import Matter from "matter-js";
 import { memo, useEffect, useRef } from "react";
 import { createBounds } from "./floor/bounds";
 import { jolt, overlaps } from "./floor/debug";
-import { applyGrowth, applyHoldForces, STEP, SUBSTEPS } from "./floor/forces";
+import { applyGrowth, applyHoldForces, changeCardAspect, STEP, SUBSTEPS } from "./floor/forces";
 import { logoFor, subscribeLogos, takeLoadedLogos } from "./floor/logoCache";
 import { createMatches } from "./floor/matches";
 import { bakeAtlas, drawPlate, plateShowsIndustry, renderPlate } from "./floor/plates";
@@ -371,8 +371,9 @@ export const CompanyFloor = memo(function CompanyFloor({ plates, theme, face, ap
     const paint = (index: number, scale: number) => {
       const sprite = (scale > 1.02 ? scene.sharp.get(index) : null) ?? scene.sprites.get(index);
       const body = scene.bodies[index];
-      const w = scene.plateW * scale;
       const h = scene.plateH * scale;
+      const hold = scene.holds.get(index);
+      const w = h * (hold ? hold.rest.w / hold.rest.h : scene.plateW / scene.plateH);
       if (w < 1 || !scene.atlas) return;
       const { dpr } = scene;
       const cos = Math.cos(body.angle);
@@ -585,8 +586,8 @@ export const CompanyFloor = memo(function CompanyFloor({ plates, theme, face, ap
         renderPlate(scene.names[index], scene.codes[index], hold.rest.w, hold.rest.h, scene.dpr, {
           theme,
           industry: scene.industries[index],
-          face: scene.face,
-          logo: scene.face === "text" ? null : logoFor(scene.codes[index]),
+          face: "brand",
+          logo: logoFor(scene.codes[index]),
           showIndustry: plateShowsIndustry(theme),
           hero: scene.heroes[index] || null,
           hint: scene.hints[index] || null,
@@ -606,9 +607,8 @@ export const CompanyFloor = memo(function CompanyFloor({ plates, theme, face, ap
     scene.plateW = scene.plateH * aspectFor(face);
     scene.bigW = scene.bigH;
     if (scene.bodies.length) {
-      const fx = scene.plateW / prevW;
-      for (const body of scene.bodies) {
-        Matter.Body.scale(body, fx, 1);
+      for (const [index, body] of scene.bodies.entries()) {
+        if (!scene.holds.has(index)) changeCardAspect(body, prevW / scene.plateH, scene.plateW / scene.plateH);
         Matter.Sleeping.set(body, false);
       }
     }

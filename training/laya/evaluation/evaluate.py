@@ -11,6 +11,30 @@ from artifacts import ROOT, atomic_json, registry, model_path, sha
 sys.path.insert(0, str(ROOT / "scripts"))
 from atlas_runtime import owned, stop, serve
 
+def dataset_gate(candidate, manifest):
+    """Training identity and group isolation are required even if scores pass."""
+    try:
+        identity = candidate["dataset"]
+        dataset_path = ROOT / identity["config"]["dataset"]
+        if sha(dataset_path) != identity["datasetSha256"]:
+            return False
+        tokenized = json.loads(dataset_path.read_text(encoding="utf-8"))
+        source = ROOT / tokenized["source"]
+        if sha(source) != identity["sourceSha256"] or sha(ROOT / tokenized["items"]) != identity["itemsSha256"]:
+            return False
+        dataset = json.loads(source.read_text(encoding="utf-8"))
+        if dataset["corpusSha256"] != manifest["corpusSha256"]:
+            return False
+        sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "datasets"))
+        from groups import validate, validate_coverage
+        validate(dataset["tasks"])
+        validate_coverage(dataset["tasks"])
+        evaluation_companies = {subject["companyId"] for case in manifest["cases"] for subject in case["subjects"]}
+        evaluation_refs = {evidence["ref"] for case in manifest["cases"] for subject in case["subjects"] for evidence in subject["evidence"]}
+        return all(task["companyGroupId"] not in evaluation_companies and all(ref["ref"] not in evaluation_refs for ref in task["evidenceRefs"]) for task in dataset["tasks"])
+    except (KeyError, ValueError, OSError):
+        return False
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--candidate", required=True)
@@ -65,9 +89,11 @@ def main():
                 coordinates.append((item["benchmarkSha16"], item.get("corpusDigest"), item.get("gitHead"), item.get("marketDate")))
             else:
                 benchmark_ok = providers.count("jev") == providers.count("laya") == 2 and len(set(coordinates)) == 1
-        qualified = required <= covered and contract_ok and boundaries_ok and product_set and benchmark_ok and manifest.get("independentLabelsReviewed") is True
+        training_data_ok = dataset_gate(candidate, manifest)
+        qualified = required <= covered and contract_ok and boundaries_ok and product_set and benchmark_ok and training_data_ok and manifest.get("independentLabelsReviewed") is True
         report = {"schemaVersion": 1, "candidate": args.candidate, "sha256": candidate["sha256"], "artifactDigest": candidate["artifactDigest"], "manifestSha256": sha(manifest_path), "rawSha256": sha(raw), "actualModel": actual["model"], "benchmarkReceipts": receipts, "qualified": qualified, "gates": {"capabilityCoverage": required <= covered, "contractValid": contract_ok, "boundaries": boundaries_ok, "independentProductSet": product_set, "benchmarkRepeats": benchmark_ok, "labelsReviewed": manifest.get("independentLabelsReviewed") is True}, "byCapability": {cap: {"cases": sum(r["capability"] == cap for r in records), "passed": sum(r["capability"] == cap and r["passed"] for r in records)} for cap in sorted(covered)}}
         report_path = output / "qualification.json"
+        report["gates"]["trainingDataIntegrityIsolationCoverage"] = training_data_ok
         atomic_json(report_path, report)
         models = registry()
         models["models"][args.candidate]["qualification"] = str(report_path.relative_to(ROOT))

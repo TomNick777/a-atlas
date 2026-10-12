@@ -1,9 +1,10 @@
 """Keep company, source-derived and query-family groups in one split."""
 import hashlib
+from collections import Counter
 
 DIMENSIONS = ("companyGroupId", "sourceGroupId", "queryGroupId")
 
-def isolate(tasks):
+def isolate(tasks, balanced=False):
     parents = {}
     def find(key):
         parents.setdefault(key, key)
@@ -28,6 +29,39 @@ def isolate(tasks):
     for key, owner in owners.items():
         if len(owner) == 1:
             assignments["queryGroupId"][key] = component_splits[next(iter(owner))]
+    if balanced:
+        features = {(task["capability"], task["label"]) for task in tasks}
+        splits = ("train", "validation", "blind")
+        def score(query_splits):
+            counts = Counter()
+            for task in tasks:
+                split = assignments["companyGroupId"][task["companyGroupId"]]
+                if query_splits[task["queryGroupId"]] == split:
+                    counts[(split, task["capability"], task["label"])] += 1
+            bins = [counts[(split, *feature)] for split in splits for feature in features]
+            return (sum(n > 0 for n in bins), sum(min(n, 3) for n in bins), sum(bins))
+        # Stratify only by reviewed training labels. Never read acceptance cases.
+        best, best_score = None, None
+        for seed in range(12):
+            candidate = dict(assignments["queryGroupId"])
+            for key in shared:
+                candidate[key] = splits[int(hashlib.sha256(f"{seed}:{key}".encode()).hexdigest()[:8], 16) % 3]
+            for _ in range(20):
+                changed = False
+                for key in shared:
+                    previous = candidate[key]
+                    choices = []
+                    for split in splits:
+                        candidate[key] = split
+                        choices.append((score(candidate), split))
+                    candidate[key] = max(choices, key=lambda item: (item[0], item[1] == previous))[1]
+                    changed |= candidate[key] != previous
+                if not changed:
+                    break
+            result_score = score(candidate)
+            if best_score is None or result_score > best_score:
+                best, best_score = candidate, result_score
+        assignments["queryGroupId"] = best
     kept = []
     for task in tasks:
         splits = {assignments[dimension][task[dimension]] for dimension in DIMENSIONS}
@@ -35,6 +69,14 @@ def isolate(tasks):
             kept.append({**task, "split": splits.pop()})
     validate(kept)
     return kept
+
+def validate_coverage(tasks):
+    required = {"semantic_match", "semantic_relation", "semantic_comparison", "evidence_explanation"}
+    for split in ("train", "validation", "blind"):
+        for capability in required:
+            labels = {task["label"] for task in tasks if task["split"] == split and task["capability"] == capability}
+            if not {0, 3} <= labels:
+                raise ValueError(f"Product dataset needs positive and negative labels: {split}/{capability}")
 
 def validate(tasks):
     seen = {}

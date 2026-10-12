@@ -75,8 +75,9 @@ def main():
         controlled = source_manifest.get("purpose", "").startswith("controlled")
         if not controlled:
             sys.path.insert(0, str(ROOT / "training/laya/datasets"))
-            from groups import validate
+            from groups import validate, validate_coverage
             validate(source_manifest["tasks"])
+            validate_coverage(source_manifest["tasks"])
             required = {"semantic_match", "semantic_relation", "semantic_comparison", "evidence_explanation"}
             for split in ("train", "validation", "blind"):
                 if {task["capability"] for task in source_manifest["tasks"] if task["split"] == split} != required:

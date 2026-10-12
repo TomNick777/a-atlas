@@ -1,5 +1,5 @@
 import Matter from "matter-js";
-import { park, wakeNear } from "./forces";
+import { changeCardAspect, park, wakeNear } from "./forces";
 import { gridLayout } from "./layout";
 import { logoFor } from "./logoCache";
 import { renderPlate } from "./plates";
@@ -101,6 +101,7 @@ export function createMatches(scene: Scene) {
   const begin = (index: number, rank: number, fly: boolean) => {
     if (!shown) return;
     const rest = shown.layout.rests[rank];
+    changeCardAspect(bodies[index], scene.plateW / scene.plateH, rest.w / rest.h);
     const hold: Hold = {
       rest,
       scale: rest.h / scene.plateH,
@@ -180,7 +181,8 @@ export function createMatches(scene: Scene) {
     queue.length = 0;
     scene.box = null;
     if (!holds.size) return;
-    holds.forEach((_, index) => {
+    holds.forEach((hold, index) => {
+      changeCardAspect(bodies[index], hold.rest.w / hold.rest.h, scene.plateW / scene.plateH);
       Matter.Sleeping.set(bodies[index], false);
       bodies[index].collisionFilter.mask = 0xffffffff;
       bodies[index].collisionFilter.group = 0;

@@ -12,7 +12,7 @@
     "test:public": "vitest run --config vitest.public.config.ts && npm run test:py:public",
     "test:py:public": "python scripts/test_public_python.py",
     "publication:check": "python scripts/check_publication.py",
-    "test:py": "python -m unittest discover -s tests -p \"test_stockdata_*.py\" -v && python -m unittest discover -s tests -p \"test_laya_groups.py\" -v && python -m unittest discover -s tests -p \"test_laya_lifecycle.py\" -v",
+    "test:py": "python -m unittest discover -s tests -p \"test_stockdata_*.py\" -v && python -m unittest discover -s tests -p \"test_laya_groups.py\" -v && python -m unittest discover -s tests -p \"test_laya_lifecycle.py\" -v && python -m unittest discover -s tests -p \"test_laya_qualification.py\" -v",
     "test:jev-live": "tsx scripts/jev_live_suite.ts",
     "quality:discovery": "tsx quality/discovery/runner/run.ts",
     "quality:discovery:review": "tsx quality/discovery/runner/review.ts",

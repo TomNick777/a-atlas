@@ -11,6 +11,7 @@ for filename in (
     "test_stockdata_daily.py",
     "test_laya_groups.py",
     "test_laya_lifecycle.py",
+    "test_laya_qualification.py",
 ):
     suite.addTests(unittest.defaultTestLoader.discover("tests", pattern=filename))
 

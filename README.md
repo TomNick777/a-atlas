@@ -1,6 +1,6 @@
 # A 股公司发现
 
-> 集成分支正在执行 Atlas / Trawler 合并，总验收与正式切换尚未完成。新运行、双模型、训练与数据私有契约见 [统一运行说明](docs/ATLAS_TRAWLER_MERGER_RUNTIME.md)。
+> Atlas / Trawler 工程合并及正式目录切换已完成。双模型、训练与数据私有契约见 [统一运行说明](docs/ATLAS_TRAWLER_MERGER_RUNTIME.md)。Laya 持续训练的目标是替代 Jev，质量目标仍未完成，见 [训练目标](docs/LAYA_REPLACEMENT_OBJECTIVE.md)。
 
 用一句话描述你要找的公司，匹配的公司牌会从物理堆里浮上来。
 
@@ -122,17 +122,17 @@ JEV_BASE_URL       仅 CI / 故障注入指向 scripts/jev_stub.mjs；生产不�
 
 降级只有一条路：检索基础排序 + 如实标注。命中缓存不再重新判断（`logCacheHit()` 落 `cacheReplay: true` 行，云端零调用），同一 query 并发去重。实测生产形态 200 候选 = 2 chunk 并发：p50 539ms、p95 1358ms，约 61k tokens ≈ $0.0026 / 次搜索。每次尝试与每次搜索都落遥测（`judge{provider,model,outcome}`、`rerankEvidence`、`productionTuple`），`/api/health` 的 `judge` 字段报 `configured` 与熔断状态——永远不报 key。
 
-## Laya 归 a-share-trawler，不在本仓运行时里
+## 统一模型与训练运行时
 
-A-Atlas 的本地运行时只有两个组件：**Web（`:3400`）与 Data（`:8920`，a-atlas-data 数据服务）**。**没有 Laya sidecar，没有 `LAYA_URL`，没有 GPU/VRAM 要求**；`:8787` 是 a-share-trawler 自己的实例，两个项目共享历史不共享运行时。
+A-Atlas 核心运行时为 **Web（`:3400`）与 Data（`:8920`）**；可选 **Laya（`:8787`）** 归统一工程。设置里显式选择 Jev Cloud 或 Laya，下一次搜索生效；请求不静默换模型。Jev 核心不要求 GPU，Laya 本地推理与训练需要匹配的 CUDA 环境。
 
 Refocus（2026-09-28）起，Phase 0–4 曾并入的 Vibe AStock 研究系统已从产品与运行时中完全退役（原 Research `:8910` 服务不复存在）；Phase 0–4 报告与历史文档原样保留作为当时架构的证据链，出处见 `THIRD_PARTY_NOTICES.md` 与 `docs/VIBE_REMOVAL_INVENTORY.md`。
 
-本仓保留 Laya 的痕迹只作为历史证据链，不是可用能力：
+训练、精确恢复、评估、候选晋升和回退由统一 CLI 提供，Data 使用 `.venv`，Laya 使用 `.venv-laya`。active 只从 `models/registry.json` 装载；失败候选不晋升，训练不会自动改变模型选择。原 v4.1 是可选基线，质量差距继续如实记录。
 
 - `reports/LAYA_*.md`（V1–V4.2 训练/评测/晋升报告）与 `reports/PHASE4_JEV_CUTOVER.md` 的切换记录保留在本机和历史归档，不随公开代码发布。
-- `scripts/laya_*.py`、`scripts/train_laya*.py`、`scripts/laya_server.py`、`kaggle_laya_finetune/`——本仓没有 Laya 模型与训练依赖；运行步骤中的 `.venv` 用于 Data 服务。
-- 其中 7 个会经 `lib/jev` 打到云端的脚本（`shadow_replay_v41` / `smoke_v41_promotion` / `build_ranking_candidates` / `organic_shadow_protocol` / `residual_triage` / `laya_v4_2_eval_grade` / `stage3_1_smoke`）加了 `requireLayaLane()` 硬闸，默认拒绝运行——否则「Laya 臂」会静默打在 Jev 云上，产出一份没发生过的对比。要到 trawler 跑同名脚本，或显式 `ATLAS_LAYA_LANE=1`（此时被测对象是 Jev）。
+- 历史脚本保留在 `training/laya/legacy/`；日常用 `npm run laya:train|laya:resume|laya:evaluate|laya:promote|laya:rollback`，参数见统一运行说明。旧实验入口不作为新的生产工作流。
+- 权重、数据、报告、恢复状态、真实应答留在本机，不进入公开 Git 历史；日常操作不依赖 trawler 的绝对路径或进程。
 
 ## 搜索是怎么做的
 

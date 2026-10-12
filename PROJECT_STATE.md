@@ -1,7 +1,7 @@
 # PROJECT_STATE
 
 
-> **Atlas / Trawler 合并实施中（2026-10-12）**：在 `codex/atlas-trawler-merge` 隔离分支实施中性 intelligence seam、双模型上下文、答案证据快照、日线和独立 Laya 训练生命周期。原正式目录及旧应用尚未切换。已真实验证一次训练取消/恢复与连续训练的权重、loss 逐项一致；后续候选权重更新成功但关键关系/解释边界准入仍失败，未晋升。本机 Node 未使用既有代理的问题已解决，Jev 身份核验为 jev-1.13.0；独立边界中的关系强度和证据解释仍有失败，云端/本地模型均未达准入门槛。Harbor 配套分支已通过类型、lint、全量测试、构建和隔离 Electron smoke；实际注册组件在隔离目录已通过冷启动、重启、停止及训练进程独立性检查；正式应用登记仍未变更。不得将这些记录称为合并完成，完整门槛见合并计划与 `ATLAS_TRAWLER_MERGER_RUNTIME.md`。
+> **Atlas / Trawler 工程合并与正式切换完成（2026-10-12）**：唯一入口为本目录 master，Jev/Laya 显式选择，训练与推理独立，原 trawler 入口归档，Harbor 正式登记和运行检查完成。Laya active 保持原 v4.1，替代 Jev 的质量目标继续训练，失败候选不晋升。正式目录 626 TS / 65 Python、公开 418 TS / 53 Python、构建及数据对账通过；本轮新增 Cloud 费用 0。迁移、真实恢复/模型装载、浏览器和 Harbor 记录见 docs/ATLAS_TRAWLER_MERGER_EXECUTION_STATUS_2026_10_12.md，持续目标见 docs/LAYA_REPLACEMENT_OBJECTIVE.md。
 
 
 > **统一正式仓库（2026-10-04）**：以验收提交 `2a45dca` 建立干净初始历史；旧提交完整归档。

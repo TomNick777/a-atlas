@@ -1,9 +1,9 @@
 # A-Atlas｜A股星图
 
 
-## Atlas / Trawler 集成分支（2026-10-12）
+## Atlas / Trawler 统一工程（2026-10-12）
 
-用户已明确授权按 `docs/ATLAS_TRAWLER_MERGER_PLAN_2026_10_12.md` 一次完整合并；当前在集成分支实施，总验收与正式切换尚未完成。此项明确需求解除下文 Jev-only / Laya 归 trawler 的限制，其他 parser、事实、M3、冻结质量与小产品表面纪律继续适用。
+用户已授权并完成工程合并，唯一开发与运行入口为本目录；正式切换记录见 `docs/ATLAS_TRAWLER_MERGER_EXECUTION_STATUS_2026_10_12.md`。Laya 持续训练的目标是替代 Jev，质量目标尚未完成。此明确需求解除下文历史 Jev-only / Laya 归 trawler 的限制，其他 parser、事实、M3、冻结质量与小产品表面纪律继续适用。
 
 - Atlas owns facts; the explicitly selected judge owns judgement。统一 seam 为 `lib/intelligence/capabilities`，backend 只经该 seam 消费两个 adapter；components 零 intelligence import。
 - 每次请求只使用明确选择的 Jev 或 Laya，实际身份核验并固定；不得无声切换、混用缓存、篡改历史答案的模型/证据。

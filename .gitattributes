@@ -12,4 +12,7 @@ data/market/state/manifest.json -text
 data/** -text
 quality/discovery/** -text
 
+# Resume identity binds this validator's bytes; Windows checkouts must keep LF.
+training/laya/datasets/groups.py text eol=lf
+
 # Private datasets are excluded from the public repository, including LFS.

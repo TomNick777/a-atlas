@@ -31,7 +31,7 @@ if not exist "%ROOT%\.env.local" (
         echo   A-Atlas starts anyway; the company page data blocks degrade honestly.
     ) else (
         echo   OK: Jev key configured. Model alias:
-        findstr /B /C:"JEV_MODEL=" "%ROOT%\.env.local" 2>nul | findstr /R /C:"=.." >nul 2>&1 && (echo     JEV_MODEL set in .env.local) || (echo     JEV_MODEL unset - defaults to jev-latest)
+        findstr /B /C:"JEV_MODEL=" "%ROOT%\.env.local" 2>nul | findstr /R /C:"=.." >nul 2>&1 && (echo     JEV_MODEL set in .env.local) || (echo     JEV_MODEL unset - defaults to jev-1.13.0)
     )
 )
 

@@ -5,6 +5,7 @@ import { estimateJudgeCost } from "../../../lib/intelligence/capabilities";
 import { isAccountedCloudUrl } from "./accounting";
 type Ledger = { schemaVersion: number; maxCalls: number; maxCostUsd: number; calls: number; costUsd: number; reservedUsd: number; exhausted: boolean; events: { at: string; estimatedUsd: number; actualUsd: number | null }[] };
 export function installCloudBudget(file: string, maxCalls: number, maxCostUsd: number): () => void {
+  if (!Number.isSafeInteger(maxCalls) || maxCalls <= 0 || !Number.isFinite(maxCostUsd) || maxCostUsd <= 0) throw new Error("Cloud budget requires positive finite call and cost limits");
   mkdirSync(dirname(file), { recursive: true });
   const lock = `${file}.lock`;
   const handle = openSync(lock, "wx");
@@ -33,8 +34,8 @@ export function installCloudBudget(file: string, maxCalls: number, maxCostUsd: n
       const response = await original(input, init);
       const data = await response.clone().json().catch(() => null);
       const usage = data?.usage;
-      const tokens = Number.isFinite(usage?.input_tokens) && Number.isFinite(usage?.output_tokens) && usage.input_tokens >= 0 && usage.output_tokens >= 0 ? usage.input_tokens + usage.output_tokens : null;
-      event.actualUsd = tokens === null ? null : estimateJudgeCost(tokens);
+      const tokens = Number.isFinite(usage?.input_tokens) && Number.isFinite(usage?.output_tokens) && usage.input_tokens >= 0 && usage.output_tokens >= 0 ? usage.input_tokens : null;
+      event.actualUsd = response.ok ? tokens === null || typeof data?.model !== "string" ? null : estimateJudgeCost(tokens, data.model) : 0;
       // Unknown billing keeps the conservative reservation charged, never assumes zero.
       ledger.costUsd += event.actualUsd ?? estimate;
       return response;

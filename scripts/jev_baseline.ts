@@ -23,7 +23,7 @@ const args: Args = { quick: process.argv.slice(2).includes("--quick") };
 
 const ENDPOINT = process.env.JEV_BASE_URL?.trim() || "https://api.typesafe.ai/v1/systemone";
 const KEY = process.env.TYPESAFE_API_KEY?.trim() || "";
-const MODEL = process.env.JEV_MODEL?.trim() || "jev-latest";
+const MODEL = process.env.JEV_MODEL?.trim() || "jev-1.13.0";
 
 const HOW =
   "looking_for 是一个人用自己的话说想找的公司。" +

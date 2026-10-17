@@ -73,7 +73,7 @@ export function collectEnvironmentPin(benchmark: { benchmarkVersion: string; sha
     jev: {
       endpoint: jevJudgeRuntime().status.endpoint,
       aliasRequested: jevJudgeRuntime().status.model,
-      productionContract: jevJudgeRuntime().status.provider === "jev" ? JEV_PRODUCTION_MODEL : "laya-adapter-1",
+      productionContract: jevJudgeRuntime().status.provider === "jev" ? JEV_PRODUCTION_MODEL : jevJudgeRuntime().status.provider === "drex" ? jevJudgeRuntime().status.model : "laya-adapter-1",
       answeredModel: jevJudgeRuntime().status.lastAnsweredModel,
       configured: jevJudgeAvailability().configured,
       breaker: jevJudgeAvailability().breaker,

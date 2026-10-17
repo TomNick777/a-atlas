@@ -20,7 +20,7 @@ import { resolve } from "node:path";
 import { installCloudBudget } from "./cloud-budget";
 import { withJudgeProvider, parseProvider, jevJudgeRuntime } from "../../../lib/intelligence/capabilities";
 import { loadLocalEnv } from "../../../scripts/load-env";
-import { typesafeKey, jevBaseUrl } from "../../../lib/env";
+import { typesafeKey, jevBaseUrl, drexKey } from "../../../lib/env";
 import { loadDataset } from "../../../lib/companies";
 import { loadCommittedMarketStateManifest, loadMarketStateRows } from "../../../lib/market/state";
 import { identityProbe, runSemanticComparison, subjectsOf, JEV_CAPABILITY_CONTRACT_VERSIONS, JEV_PRODUCTION_MODEL, runEvidenceExplanation } from "../../../lib/intelligence/capabilities";
@@ -57,15 +57,19 @@ const EXPLAIN_PLAN: Record<string, string[]> = {
   H01: ["600519", "000858"],
 };
 
-type Args = { provider: "jev" | "laya"; budget: string | null; label: string | null; offline: boolean; families: string[] | null; ids: string[] | null };
+type Args = { provider: "jev" | "drex" | "laya"; expectedModel: string | null; budget: string | null; label: string | null; offline: boolean; families: string[] | null; ids: string[] | null };
 
 function parseArgs(): Args {
   const argv = process.argv.slice(2);
-  const args: Args = { provider: "jev", budget: null, label: null, offline: false, families: null, ids: null };
+  const args: Args = { provider: "jev", expectedModel: null, budget: null, label: null, offline: false, families: null, ids: null };
   for (let i = 0; i < argv.length; i += 1) {
     if (argv[i] === "--label") args.label = argv[i + 1] ?? null;
-    else if (argv[i] === "--provider") args.provider = parseProvider(argv[i + 1]);
+    else if (argv[i] === "--provider") {
+      const provider = parseProvider(argv[i + 1]);
+      args.provider = provider;
+    }
     else if (argv[i] === "--acceptance-budget") args.budget = argv[i + 1];
+    else if (argv[i] === "--expected-model") args.expectedModel = argv[i + 1] ?? null;
     else if (argv[i] === "--offline") args.offline = true;
     else if (argv[i] === "--family") args.families = (argv[i + 1] ?? "").split(",").map((value) => value.trim()).filter(Boolean);
     else if (argv[i] === "--query") args.ids = (argv[i + 1] ?? "").split(",").map((value) => value.trim()).filter(Boolean);
@@ -388,11 +392,7 @@ async function main(): Promise<void> {
     if (args.provider === "jev" && jevBaseUrl() !== "https://api.typesafe.ai/v1/systemone") {
       die(`refusing to run a baseline against a non-production surface (${jevBaseUrl()})`);
     }
-    const probe = await identityProbe();
-    preflight.identityProbe = probe;
-    if (!probe.ok || probe.model !== (args.provider === "jev" ? JEV_PRODUCTION_MODEL : jevJudgeRuntime().status.lastAnsweredModel)) {
-      die(`identity probe failed: ok=${probe.ok} model=${probe.model} (contract ${JEV_PRODUCTION_MODEL}) — fix the judge before measuring it`);
-    }
+    if (args.provider === "drex" && !drexKey()) die("NACE_API_KEY is empty");
   }
 
   const market = loadCommittedMarketStateManifest();
@@ -423,6 +423,14 @@ async function main(): Promise<void> {
   if (goldenFailures.length > 0) die(`golden evidence no longer holds:\n  ${goldenFailures.join("\n  ")}\ncorpus moved — re-verify anchors and bump the benchmark version`, 2);
   preflight.goldenEvidence = { entries: golden.entries.length, ok: true };
 
+  // All local coordinate checks precede the first billable call.
+  if (!offline) {
+    const probe = await identityProbe();
+    preflight.identityProbe = probe;
+    const expected = args.expectedModel ?? (args.provider === "jev" ? JEV_PRODUCTION_MODEL : jevJudgeRuntime().status.lastAnsweredModel);
+    if (!probe.ok || probe.model !== expected) throw new Error(`identity probe failed: ${probe.model} != ${expected}`);
+  }
+
   const accounting = createAccounting();
   accounting.wrap();
 
@@ -432,7 +440,7 @@ async function main(): Promise<void> {
   console.log(`mode: ${offline ? "offline-debug" : "live"} · cases: ${cases.length} · corpus ${corpusDigest} · market ${doc.marketDate}`);
 
   for (const benchCase of cases) {
-    if (args.budget && args.provider === "jev" && JSON.parse(readFileSync(resolve(dirnameOfBudget(args.budget), "cloud-budget.json"), "utf8")).exhausted) {
+    if (args.budget && args.provider !== "laya" && JSON.parse(readFileSync(resolve(dirnameOfBudget(args.budget), "cloud-budget.json"), "utf8")).exhausted) {
       const partial = resolve(SNAPSHOTS_DIR, label);
       mkdirSync(partial, { recursive: true });
       writeFileSync(resolve(partial, "partial-results.jsonl"), records.map(record => JSON.stringify(record)).join("\n"));
@@ -462,6 +470,7 @@ async function main(): Promise<void> {
     suite: "atlas-selected-judge-discovery-quality/1",
     provider: args.provider,
     actualModel: jevJudgeRuntime().status.lastAnsweredModel,
+    expectedModel: args.expectedModel ?? (args.provider === "jev" ? JEV_PRODUCTION_MODEL : null),
     marketDate: doc.marketDate,
     corpusDigest,
     gitHead: environment.gitHead,
@@ -506,8 +515,16 @@ async function main(): Promise<void> {
 loadLocalEnv();
 const entryArgs = parseArgs();
 let restoreBudget: (() => void) | null = null;
-if (entryArgs.budget && !entryArgs.offline && entryArgs.provider === "jev") {
+if (!entryArgs.offline && entryArgs.provider !== "laya" && !entryArgs.budget) throw new Error("Cloud quality runs require an explicit preregistered budget");
+if (entryArgs.expectedModel) {
+  const allowed = entryArgs.provider === "jev" ? ["jev-1.13.0", "jev-1.14.0"] : entryArgs.provider === "drex" ? ["drex-v1.5", "drex-v2.0"] : [];
+  if (!allowed.includes(entryArgs.expectedModel)) throw new Error("Expected model must be a supported fixed cloud version");
+  process.env[entryArgs.provider === "jev" ? "JEV_MODEL" : "DREX_MODEL"] = entryArgs.expectedModel;
+}
+if (entryArgs.provider === "drex" && !entryArgs.expectedModel) throw new Error("Drex quality requires --expected-model");
+if (entryArgs.budget && !entryArgs.offline && entryArgs.provider !== "laya") {
   const prereg = JSON.parse(readFileSync(entryArgs.budget, "utf8"));
+  if ((entryArgs.expectedModel || entryArgs.provider === "drex") && (prereg.judge?.provider !== entryArgs.provider || prereg.judge?.model !== entryArgs.expectedModel)) throw new Error("Budget must register the selected provider and exact candidate model");
   restoreBudget = installCloudBudget(resolve(dirnameOfBudget(entryArgs.budget), "cloud-budget.json"), prereg.quality.cloudMaxCalls, prereg.quality.cloudMaxCostUsd);
 }
 function dirnameOfBudget(file: string) { return resolve(file, ".."); }

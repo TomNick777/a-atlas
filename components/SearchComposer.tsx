@@ -1,6 +1,12 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import dynamic from "next/dynamic";
+import { VoiceBeam } from "voice-glow";
+
+const ThinkingOrb = dynamic(() => import("thinking-orbs").then((module) => module.ThinkingOrb), {
+  ssr: false,
+});
 
 type Props = {
   value: string;
@@ -13,34 +19,15 @@ type Props = {
 
 /** The bar is the only control. Enter or the orb runs a search; while busy the orb stops it. */
 export function SearchComposer({ value, busy, onChange, onSubmit, onClear, onStop }: Props) {
-  const formRef = useRef<HTMLFormElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const decay = useRef<number | null>(null);
-  const lastInput = useRef(0);
+  const pulse = useRef({ level: 0, at: 0 });
   const composing = useRef(false);
 
-  // 打字能量驱动辉光：按键同步充能，衰减交给 CSS transition。
-  // 不用 rAF——嵌入视图停帧时 rAF 不跑，能量会永远写不进去。
+  // The beam samples this envelope itself; elapsed time also handles suspended tabs.
+  const readLevel = () => pulse.current.level * Math.exp(-(performance.now() - pulse.current.at) / 180);
   const charge = () => {
-    const form = formRef.current;
-    if (!form) return;
-    const now = performance.now();
-    const interval = now - lastInput.current;
-    lastInput.current = now;
-    form.style.setProperty("--energy", String(Math.min(1, 0.35 + 140 / Math.max(interval, 100))));
-    if (decay.current !== null) window.clearTimeout(decay.current);
-    decay.current = window.setTimeout(() => {
-      formRef.current?.style.setProperty("--energy", "0");
-      decay.current = null;
-    }, 300);
+    pulse.current = { level: Math.min(1, readLevel() + 0.5), at: performance.now() };
   };
-
-  useEffect(
-    () => () => {
-      if (decay.current !== null) window.clearTimeout(decay.current);
-    },
-    [],
-  );
 
   // / 全局聚焦输入框（输入法组和文本框内不抢）。
   useEffect(() => {
@@ -63,17 +50,26 @@ export function SearchComposer({ value, busy, onChange, onSubmit, onClear, onSto
   };
 
   return (
-    <div className="composer-beam">
+    <VoiceBeam
+      className="composer-beam"
+      type="default"
+      theme="dark"
+      colorVariant="colorful"
+      strength={0.9}
+      level={readLevel}
+      processing={busy}
+    >
       <form
-        ref={formRef}
         role="search"
         data-busy={busy}
         aria-busy={busy}
         className="composer"
-        onSubmit={(event) => event.preventDefault()}
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (busy) onStop();
+          else submit();
+        }}
       >
-        <span aria-hidden className="perimeter-glow" /><span aria-hidden className="perimeter-edge" />
-        <span aria-hidden className="search-signal"><i /><i /><i /><i /></span>
         <input
           ref={inputRef}
           value={value}
@@ -101,6 +97,8 @@ export function SearchComposer({ value, busy, onChange, onSubmit, onClear, onSto
           }}
           placeholder="描述你想找的公司"
           aria-label="描述你想找的公司"
+          autoComplete="off"
+          spellCheck={false}
           className="search-input"
         />
         {value && (
@@ -117,16 +115,19 @@ export function SearchComposer({ value, busy, onChange, onSubmit, onClear, onSto
           type="submit"
           aria-label={busy ? "停止搜索" : "搜索"}
           disabled={busy ? false : !ready}
-          onClick={() => (busy ? onStop() : submit())}
           className="orb"
+          title={busy ? "停止搜索" : "搜索"}
         >
-          {busy ? (
-            <svg className="orb-stop" aria-hidden viewBox="0 0 24 24"><rect x="6.5" y="6.5" width="11" height="11" rx="1.5" fill="currentColor" /></svg>
-          ) : (
-            <svg className="orb-arrow" aria-hidden viewBox="0 0 24 24" fill="none"><path d="M12 19V5M5 12l7-7 7 7" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" /></svg>
-          )}
+          <ThinkingOrb
+            state={busy ? "searching" : "breathing"}
+            theme="dark"
+            size={64}
+            aria-hidden="true"
+            style={{ width: 30, height: 30 }}
+          />
+          {busy && <span aria-hidden className="orb-stop" />}
         </button>
       </form>
-    </div>
+    </VoiceBeam>
   );
 }

@@ -54,6 +54,8 @@
     "stage3:universe": "tsx scripts/stage3_universe.ts",
     "stage3:enrichment": "tsx scripts/stage3_build_enrichment.ts",
     "search:inspect": "tsx scripts/search_inspect.ts",
+    "search:query": "tsx scripts/company_query.ts",
+    "search:quality": "tsx scripts/search_quality.ts",
     "search:export-review": "tsx scripts/search_export_review.ts",
     "search:health": "tsx scripts/search_health.ts",
     "search-profile:health": "tsx scripts/search_profile_health.ts",
@@ -82,7 +84,9 @@
     "matter-js": "^0.20.0",
     "next": "16.3.8",
     "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react-dom": "19.2.8",
+    "thinking-orbs": "0.3.1",
+    "voice-glow": "0.2.0"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

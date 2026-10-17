@@ -22,6 +22,7 @@
 | B3 | Jev synonym bridge（词形差导致的相关结果丢失） | Phase 3.5 baseline | `docs/JEV_DISCOVERY_QUALITY_BASELINE.md` |
 | B4 | 新闻面 | Phase 3.7 收口 | `SOURCE_SURFACE_GAP` |
 | B5 | 行情查询的时间口径与数据刷新 | 2026-10-02 本人明确反馈：行情搜索准确率差；实际查询「今天领涨的公司」 | 见下方使用问题记录；无原搜索 trace，不伪造 id |
+| B6 | 已有年报/官网中的细粒度产品事实未进入 corpus | 2026-10-17 按下一阶段计划审查近期真实负反馈；现有来源有原文，事实库/corpus 缺失并伴随候选漏召回；不归为 judge 错误 | 私有 `reports/SEARCH_QUALITY_NEXT_STAGE_2026_10_17/EXECUTION_REPORT.md` 保存首次 trace、原文与哈希；首轮通用型号句候选因噪声未晋升，继续验证结构抽取 |
 
 ## 使用问题记录：B5（2026-10-02）
 

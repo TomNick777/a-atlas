@@ -9,6 +9,7 @@ export default mergeConfig(base, defineConfig({
       "tests/atlas-company.test.ts",
       "tests/corpus.test.ts",
       "tests/discovery.test.ts",
+      "tests/company_discovery_offline.test.ts",
       "tests/evidence_coverage.test.ts",
       "tests/evidence_grounding.test.ts",
       "tests/evidence_surface.test.ts",

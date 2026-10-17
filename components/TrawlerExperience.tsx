@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useRef, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import type { ResultJudgement, SearchTrace } from "@/lib/types";
 import type { EvidenceView, HybridDiscoverPresented } from "@/lib/atlas/evidence";
@@ -45,9 +45,6 @@ export function TrawlerExperience({ plates, universeCount }: { plates: Plate[]; 
   // the UI never derives or selects evidence itself.
   const [evidenceByCode, setEvidenceByCode] = useState<Map<string, { judgement: ResultJudgement | null; evidence: EvidenceView[] | null }>>(new Map());
   const [peek, setPeek] = useState<PeekState | null>(null);
-  // §10: the judge being unavailable is a fact the user is told, not a silent fallback.
-  const [toast, setToast] = useState<{ text: string; tone: "ok" | "error" } | null>(null);
-  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Server snapshot is the classic default; the client snapshot reads localStorage.
   const theme = useSyncExternalStore(subscribeCardTheme, readCardTheme, () => DEFAULT_CARD_THEME);
   const judgeProvider = useSyncExternalStore(subscribeJudgeChoice, readJudgeChoice, () => "jev" as const);
@@ -66,16 +63,6 @@ export function TrawlerExperience({ plates, universeCount }: { plates: Plate[]; 
 
   const setFace = useCallback((next: CardFace) => {
     writeCardFace(next);
-  }, []);
-
-  useEffect(() => () => {
-    if (toastTimer.current) clearTimeout(toastTimer.current);
-  }, []);
-
-  const showToast = useCallback((text: string, tone: "ok" | "error") => {
-    setToast({ text, tone });
-    if (toastTimer.current) clearTimeout(toastTimer.current);
-    toastTimer.current = setTimeout(() => setToast(null), 2_000);
   }, []);
 
   const anchor = useCallback(() => {
@@ -127,29 +114,20 @@ export function TrawlerExperience({ plates, universeCount }: { plates: Plate[]; 
           setPhase("done");
           return;
         }
-        // Pure discovery keeps its client contract; hybrid results arrive in
-        // final server order (the market metric decides the rank) and carry
-        // the plan's hero metric for the card. The Level-1 hint line shows
-        // only on judgement-backed rows: deterministic term hits from the
-        // judge profile, verbatim — never Jev prose, never a degraded row.
+        // Keep the server's company order so cards and recorded ranks agree.
+        // Hints are verbatim term hits on judgement-backed company evidence.
         const hintOf = (row: (typeof data.results)[number]): string | null => {
-          if (!row.judgement || row.hero?.formatted) return null;
+          if (!row.judgement) return null;
           const terms = (row.semantic?.matchedFacts ?? []).slice(0, 2);
           return terms.length ? terms.join(" · ") : null;
         };
-        const matches =
-          data.execution.order === "semantic-only"
-            ? [...data.results]
-                .sort((a, b) => (b.probability ?? 0) - (a.probability ?? 0))
-                .map((row) => ({ code: row.code, name: row.name, probability: row.probability, industry: row.swLevel1Industry ?? row.industry ?? undefined, hint: hintOf(row) }))
-            : data.results.map((row, rank) => ({
-                code: row.code,
-                name: row.name,
-                probability: row.probability,
-                industry: row.swLevel1Industry ?? row.industry ?? undefined,
-                hero: row.hero ? `#${row.rank ?? rank + 1} ${row.hero.label} ${row.hero.formatted}` : `#${row.rank ?? rank + 1}`,
-                hint: hintOf(row),
-              }));
+        const matches = data.results.map(row => ({
+          code: row.code,
+          name: row.name,
+          probability: row.probability,
+          industry: row.swLevel1Industry ?? row.industry ?? undefined,
+          hint: hintOf(row),
+        }));
         const clientTotalMs = Math.round(performance.now() - searchStart);
         // Time To Visible Results (§22): measured at the paint after state applied.
         requestAnimationFrame(() =>
@@ -287,17 +265,6 @@ export function TrawlerExperience({ plates, universeCount }: { plates: Plate[]; 
         {notice && (
           <p className="absolute top-[calc(50%+64px)] left-1/2 -translate-x-1/2 rounded-[5px] border border-white/15 bg-[#12140f] px-4 py-2 text-[13px] text-[#d9d4c8]">
             {notice}
-          </p>
-        )}
-        {toast && (
-          <p
-            className={`absolute bottom-8 left-1/2 -translate-x-1/2 rounded-[5px] border px-4 py-2 text-[13px] ${
-              toast.tone === "ok"
-                ? "border-white/15 bg-[#12140f] text-[#d9d4c8]"
-                : "border-[#c2803f]/50 bg-[#12140f] text-[#c2803f]"
-            }`}
-          >
-            {toast.text}
           </p>
         )}
         <SettingsPanel judge={judgeProvider} onSelectJudge={writeJudgeChoice} theme={theme} onSelectTheme={setTheme} face={face} onSelectFace={setFace} />

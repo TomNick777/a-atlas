@@ -1,5 +1,5 @@
 import { parseProvider, withJudgeProvider } from "@/lib/intelligence/capabilities";
-import { runHybridQuery } from "@/lib/hybrid/execute";
+import { runCompanyDiscovery } from "@/lib/discovery/query";
 import { discoverCacheKey, lookupDiscover, storeDiscover, recordDiscoverAnswer } from "@/lib/atlas/discoverCache";
 import { presentDiscoverResult } from "@/lib/atlas/evidence";
 import { normalizeOrigin } from "@/lib/telemetry/organic";
@@ -7,17 +7,13 @@ import { isValidSessionId, newSearchId } from "@/lib/telemetry/ids";
 import { corruptCapture } from "@/lib/telemetry/search";
 import { discoverReceived, discoverCompleted, discoverFailed } from "@/lib/telemetry/discover";
 import { noteSearch } from "@/lib/atlas/runtime";
-import { prepareMarketForQuery } from "@/lib/market/refresh";
 
 /**
- * Market Intelligence Phase 2 — Hybrid Market Discovery endpoint (§15).
+ * Company discovery endpoint. Market execution is a maintenance-only lane.
  *
  * One entry for every natural-language discovery query: the deterministic
- * parser compiles the query into a plan, and the executor routes it —
- * semantic-only keeps the exact /api/search path, market-only keeps the exact
- * Phase 1 Market Query path, and the two hybrid orders join them without ever
- * fusing scores. The response carries the plan so the UI never re-derives
- * rankings and every answer is explainable (query → plan → execution → results).
+ * parser accepts business discovery or honestly refuses an out-of-scope query.
+ * Accepted queries use the existing retrieval/judgement pipeline unchanged.
  *
  * Phase 3.4: each row additionally carries its live judgement (when a Jev
  * decision backs it) with the resolved EvidenceView list — the UI contract in
@@ -25,7 +21,7 @@ import { prepareMarketForQuery } from "@/lib/market/refresh";
  * applied after the cache on every path.
  *
  * Product Usage Baseline: EVERY real search gets ONE trace id, minted here
- * before anything runs — including cache replays, market-only answers and
+ * before anything runs — including cache replays, scope refusals and
  * unsupported intents, which the pipeline's own events never saw. Telemetry is
  * fire-and-forget: it cannot fail, delay or change the answer (§1.2).
  */
@@ -36,7 +32,7 @@ async function discover(request: Request) {
   if (query.length < 2) return Response.json({ error: "至少输入 2 个字。" }, { status: 400 });
 
   // One trace id per real search (usage spec §2), minted before anything runs —
-  // cache replays, corrupt captures, market-only answers and unsupported
+  // cache replays, corrupt captures and unsupported
   // intents all carry it.
   const traceId = newSearchId();
 
@@ -52,12 +48,10 @@ async function discover(request: Request) {
   let key: string;
   let hit: ReturnType<typeof lookupDiscover>;
   try {
-    await prepareMarketForQuery(query);
     key = discoverCacheKey(query);
     hit = lookupDiscover(key);
   } catch (error) {
-    // Maintenance can temporarily reject snapshot reads before execution starts.
-    // This is still one received search with a trace and an explicit retryable error.
+    // A local cache failure is still one received search with a traced error.
     void discoverReceived({ searchId: traceId, rawQuery: query, origin, sessionId, cached: false, corrupt: corruptQuery });
     const message = error instanceof Error ? error.message : "搜索失败。";
     void discoverFailed({ searchId: traceId, sessionId, message });
@@ -84,7 +78,7 @@ async function discover(request: Request) {
 
   let result;
   try {
-    result = await runHybridQuery(query, { log: true, origin, sessionId, corrupt: corruptQuery, traceId, signal: request.signal });
+    result = await runCompanyDiscovery(query, { log: true, origin, sessionId, corrupt: corruptQuery, traceId, signal: request.signal });
   } catch (error) {
     // §10: a crash is a trace too — recorded with its message, answered 503.
     const message = error instanceof Error ? error.message : "搜索失败。";
@@ -108,6 +102,6 @@ async function discover(request: Request) {
 export async function POST(request: Request) {
   const body = await request.clone().json().catch(() => null);
   let provider;
-  try { provider = parseProvider(body?.provider); } catch { return Response.json({ error: "请选择 Jev 或 Laya。" }, { status: 400 }); }
+  try { provider = parseProvider(body?.provider); } catch { return Response.json({ error: "请选择 Jev、Drex 或 Laya。" }, { status: 400 }); }
   return withJudgeProvider(provider, () => discover(request));
 }

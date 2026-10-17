@@ -3,7 +3,6 @@ import { queryHash16, organicEligibilityFor, reformulationLink, type Reformulati
 import { emit, emitIncident } from "./emit";
 import type { TelemetryStore } from "./store";
 import type { JevValue } from "./jev";
-import { loadMarketStateManifest } from "../market/state";
 import type { HybridDiscoverResult, HybridResultRow } from "../hybrid/contracts";
 
 /**
@@ -26,15 +25,9 @@ import type { HybridDiscoverResult, HybridResultRow } from "../hybrid/contracts"
 
 export type MarketIdentity = { marketDate: string | null; stateDigest16: string | null };
 
-/** The market tuple this search would have used (cached loader read; recorded
- * for every discover search so trace identity is uniform, whether or not the
- * plan touched the market layer). */
+/** Kept as a nullable historical field; company discovery never reads market state. */
 export function marketIdentity(): MarketIdentity {
-  const manifest = loadMarketStateManifest();
-  return {
-    marketDate: manifest?.latestTradingDay ?? null,
-    stateDigest16: manifest ? manifest.contentDigest.value.slice(0, 16) : null,
-  };
+  return { marketDate: null, stateDigest16: null };
 }
 
 // Reformulation grouping for the discover surface (usage spec §7) — its own

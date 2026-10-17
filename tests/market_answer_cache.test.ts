@@ -3,7 +3,7 @@ const snapshot = vi.hoisted(() => ({ date: "2026-09-30", digest: "snapshot-a" })
 vi.mock("../lib/companies", () => ({ loadDataset: () => ({ version: "corpus-fixture" }) }));
 vi.mock("../lib/intelligence/capabilities", () => ({ judgeCacheIdentity: () => "judge-fixture", MARKET_ELIGIBILITY_VERSION: "market-eligibility-1" }));
 vi.mock("../lib/market/state", () => ({ loadMarketStateManifest: () => ({ latestTradingDay: snapshot.date, contentDigest: { value: snapshot.digest } }) }));
-import { discoverCacheKey } from "../lib/atlas/discoverCache";
+import { discoverCacheKey } from "../lib/hybrid/discoverCacheKey";
 
 describe("market answer cache invalidation", () => {
   afterEach(() => { vi.useRealTimers(); snapshot.digest = "snapshot-a"; });

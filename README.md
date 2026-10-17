@@ -4,7 +4,7 @@
 
 用一句话描述你要找的公司，匹配的公司牌会从物理堆里浮上来。
 
-首页是一堆公司牌和一个搜索框；点开公司牌进入公司页。可以找某类业务的公司，也可以结合涨幅、成交量等行情条件发现公司。语义结果标的是**相关度**，不是上涨概率；行情结果显示原始名次、指标与快照时间。
+首页是一堆公司牌和一个搜索框；用业务、产品或关系描述发现公司，点开查看匹配证据与公司业务资料。语义结果标的是**相关度**，不是上涨概率。2026-10-16 起以搜索质量为主线：行情/财务筛选与排行退出发现，公司页不展示图表、报价、财务、公告或研报列表。当前边界与质量工作流见 [搜索质量主线](docs/SEARCH_QUALITY_MAINLINE_2026_10_16.md)。
 
 ## 运行
 
@@ -56,11 +56,11 @@ Invoke-RestMethod http://127.0.0.1:8920/health
 Invoke-RestMethod http://localhost:3400/api/health
 ```
 
-两个响应的 `service` 应分别为 `a-atlas-data`、`a-atlas-web`。Web的HTTP 200只证明Web活着，还要检查 `status` 和 `components`；没有key时Jev降级符合预期，不能据此说核心服务启动失败。打开 http://localhost:3400 ，有数据时应能看到公司牌、搜索并打开 `/stock/<6位代码>`，无数据时应看到缺少公司数据提示。公司页四个数据块来自上游，可能按EMPTY / UNAVAILABLE / ERROR降级，不能因健康端点正常就宣称上游数据完整。
+两个响应的 `service` 应分别为 `a-atlas-data`、`a-atlas-web`。Web的HTTP 200只证明Web活着，还要检查 `status` 和 `components`；没有key时Jev降级符合预期。打开 http://localhost:3400 ，有数据时应能看到公司牌、搜索并打开 `/stock/<6位代码>`，无数据时应看到缺少公司数据提示。当前公司发现和公司页不请求 Data 行情/资讯；上述两服务启动与探活方式保留给既有受管运行时，不能将健康检查当作搜索质量验收。
 
 生产模式使用 `npm run build`，然后 `npm run start -- --port 3400`；Data命令相同。停止本次启动的进程用对应终端的Ctrl+C；若端口被占，先确认占用者和项目身份，不结束无关进程。
 
-行情发现另外需要有效的 `data/market-calendar/<年份>.json` 和对应行情输入/快照。先恢复已核对的本地交易日历与行情数据，再按下文行情章节维护；缺失这些输入时基础业务发现仍可用，行情查询如实不可用，不通过猜交易日或编数字补齐。
+公司发现不需要交易日历或行情快照。旧行情维护已独立，见 [维护入口](docs/MARKET_MAINTENANCE.md)。
 
 `npm run data` 拉取全部 A 股上市公司（沪市主板、深市主板、创业板、科创板、北交所，约 5,5XX 家），生成 `data/companies.json`，再用 `bge-small-zh-v1.5` 做本地向量。第一次会下载模型，需要几分钟。已经缓存过的请求不会重抓；抓取按 `--shard i/n` 分进程跑（akshare 的 py_mini_racer 不能在单进程里并发）。
 
@@ -86,7 +86,7 @@ requirements.txt。只在缺失时从 .env.example 建立 .env.local，保留已
 可启动并如实报告；用户要求准备基础公司发现数据时，在激活 .venv 的终端依次
 执行 npm run data、npm run corpus:update、npm run corpus:check。联网/模型缓存
 不可用则说明阻塞及缺失输入；不要伪造数据、改语料、改检索或添加判断回落。
-这些命令不重建原冻结基线；行情发现还需有效交易日历及真实行情输入。
+这些命令不重建原冻结基线；公司发现无需行情数据或交易日历。
 
 保持两个服务运行：Data用 .venv/Scripts/python.exe -u
 services/stock-data/server.py --port 8920；Web用 npm run dev -- --port 3400。
@@ -105,26 +105,17 @@ npm run publication:check；公开克隆不要运行依赖私有数据的完整 
 
 没有 `TYPESAFE_API_KEY` 时搜索仍能跑：没有语义判断，结果直接由确定性检索排序给出，响应里 `degraded: true`、`judge.provider: "none"`、`decidedBy: "retrieval"`，页面上明示「语义判断服务暂不可用，当前结果使用基础检索排序」。A-Atlas **不回落任何本地判断模型**。Key 放在 `.env.local`，不要写进源码。
 
-## 判断 provider：Jev Cloud（唯一）
+## 判断 provider：明确选择
 
-`lib/jev/cloud.ts` 的 `JevCloudProvider` 是 A-Atlas 唯一的语义判断来源，端点 `https://api.typesafe.ai/v1/systemone`。配置只有四个变量：
+所有生产判断只经 `lib/intelligence/capabilities`，每次请求明确选择 Jev、Drex 或 Laya，互不回落。Jev 默认固定 `jev-1.13.0`，凭证为服务端 `TYPESAFE_API_KEY`；Drex 默认固定 `drex-v1.5`，凭证为 `NACE_API_KEY`；Laya 只使用私有 registry 的 active。密钥不进入源码、浏览器、日志或错误响应，生产不设置用于故障注入的 `JEV_BASE_URL`。
 
-```
-TYPESAFE_API_KEY   唯一 key 来源（server-side，不进 bundle / 遥测 / 错误响应）
-JEV_MODEL          模型别名，默认 jev-latest
-JEV_DETAIL         每个候选送判的 profile 截断字数（默认 420；当前数据集 ≤337 字，实际不截断）
-JEV_BASE_URL       仅 CI / 故障注入指向 scripts/jev_stub.mjs；生产不设
-```
+**配置不是实际身份。** 实际应答必须通过固定版本/装载身份核验。搜索缓存绑定 judge 身份、corpus、parser、公司发现契约与原查询，模型或产品契约变化不复用旧排序；历史答案仍使用原身份和证据。
 
-**别名不是身份。** 启动时 `identityProbe()` 打一次真实双候选请求，`verifyJudgeIdentity()` 把云端应答里的版本与契约 `JEV_PRODUCTION_MODEL = "jev-1.13.0"` 比对；别名底下换了模型就是 `MODEL_IDENTITY_MISMATCH` 事故。搜索缓存 key 带 judge 身份（`judgeCacheIdentity()`），云端换模型后旧缓存自动失效，不会长期回吐旧排序。
-
-稳定性参数全部来自 `npm run jev:baseline` 的真实测量（不是猜的）：三预算分层 connect 2500ms / 单次调用 4000ms / 一次搜索全部 rerank chunk 合计 6000ms / classify 3500ms；只读判断最多重试 1 次（180→360ms 指数退避 ±25% jitter，尊重 `Retry-After`）；401/403 与 4xx 不重试；连续 3 次 provider 失败熔断 20s（坏 key 直接开 60s），熔断期间零网络调用；同时在途请求不超过 4 个（实测超过 4 之后云端自己开始排队）。
-
-降级只有一条路：检索基础排序 + 如实标注。命中缓存不再重新判断（`logCacheHit()` 落 `cacheReplay: true` 行，云端零调用），同一 query 并发去重。实测生产形态 200 候选 = 2 chunk 并发：p50 539ms、p95 1358ms，约 61k tokens ≈ $0.0026 / 次搜索。每次尝试与每次搜索都落遥测（`judge{provider,model,outcome}`、`rerankEvidence`、`productionTuple`），`/api/health` 的 `judge` 字段报 `configured` 与熔断状态——永远不报 key。
+选定模型缺配置、超时或准入失败时，搜索明确 DEGRADED，仅用确定性检索排序。模型升级、训练与质量测量分开验收；当前版本与预算纪律见 [升级准备](docs/JUDGE_MODEL_UPGRADE_2026_10_16.md) 和 [运行契约](docs/ATLAS_TRAWLER_MERGER_RUNTIME.md)，不以历史延迟数字或工程接入宣称当前搜索质量。
 
 ## 统一模型与训练运行时
 
-A-Atlas 核心运行时为 **Web（`:3400`）与 Data（`:8920`）**；可选 **Laya（`:8787`）** 归统一工程。设置里显式选择 Jev Cloud 或 Laya，下一次搜索生效；请求不静默换模型。Jev 核心不要求 GPU，Laya 本地推理与训练需要匹配的 CUDA 环境。
+A-Atlas 现有受管运行时为 **Web（`:3400`）与 Data（`:8920`）**；可选 **Laya（`:8787`）** 归统一工程。设置里显式选择 Jev、Drex 或 Laya，下一次搜索生效；请求不静默换模型。公司发现不需要 GPU，Laya 本地推理与训练需要匹配的 CUDA 环境。当前公司发现和公司页不调用 Data 行情/资讯；受管服务登记保持原契约。
 
 Refocus（2026-09-28）起，Phase 0–4 曾并入的 Vibe AStock 研究系统已从产品与运行时中完全退役（原 Research `:8910` 服务不复存在）；Phase 0–4 报告与历史文档原样保留作为当时架构的证据链，出处见 `THIRD_PARTY_NOTICES.md` 与 `docs/VIBE_REMOVAL_INVENTORY.md`。
 
@@ -136,27 +127,21 @@ Refocus（2026-09-28）起，Phase 0–4 曾并入的 Vibe AStock 研究系统�
 
 ## 搜索是怎么做的
 
-自然语言 → 语料检索粗召回（语义 + 字面：BM25 ⊕ bge 向量，都读 [Company Knowledge Corpus](docs/COMPANY_KNOWLEDGE_CORPUS.md) 的 `searchableText`）→ Jev Cloud 对候选人分批做是/否判断（noul 头，Top-200 分 2 chunk 并发，judge 读的也是同一份语料文档）→ 代码里融合成分数 → Matter.js 把对应的牌子从堆里弹上来。判断不可用时停在第三步之前：只用检索排序，并如实标 DEGRADED。
+自然语言 → 公司发现范围检查 → 语料检索粗召回（语义 + 字面：BM25 ⊕ bge 向量，都读 [Company Knowledge Corpus](docs/COMPANY_KNOWLEDGE_CORPUS.md) 的 `searchableText`）→ 明确选择的 judge 对候选分批判断并引用证据 → 保留有证据的匹配及服务端顺序 → Matter.js 把对应的牌子从堆里弹上来。判断不可用时只用检索排序，并如实标 DEGRADED。
 
 地域和「不要某类公司」这类硬条件在代码里执行，不交给 Jev。
 
-## 行情发现：当前验收范围
+## 搜索质量与本地诊断
 
-当前按「收盘排行＋业务条件」收尾。可以查「今天涨幅前10的公司」「近20日相对放量前20的公司」「半导体公司里今天涨幅前5」「今天涨幅前20里做半导体的公司」。业务内前5沿整个可排行集合逐批检查业务资格；行情前20内的业务子集保持行情名次，不补位。
-
-结果注明快照交易日、来源、覆盖与扫描完整性。扫描达到 1,000 家、20 批、30 秒或估算 US$0.05 的预算上限，或高位仍有未决资格时，如实标为不完整。没有 Jev 资格判断的公司不冒充业务匹配。
-
-盘中真实时效仍待开市验收；源端量比基准未核验，相关排行保持禁用。「近20日相对放量」是明确的历史成交量口径，不替代源端量比。本人真实使用与反馈（M4）待完成，详见 [收尾记录](docs/MARKET_DISCOVERY_CLOSEOUT_2026_10_04.md) 与 [M3 契约](docs/MARKET_DISCOVERY_M3_REPORT.md)。
-
-Data 服务按请求更新、校验并原子发布运行快照，Web 无需重启。盘后可手动刷新；命令使用当前 Python 环境，因此需先激活 `.venv`：
+主线入口不读取行情快照或交易日历。确定性 grammar 只作范围检查：行情排行、价格/财务筛选或混合条件诚实拒绝，不删除条件后回答部分查询。业务原文进入现有检索；模型明确拒绝或缺证据的公司不为凑数展示。judge 不可用时仍可看基础检索结果，明确标为降级。
 
 ```powershell
-npm run market:refresh
-npm run market:prune                # 预览清理候选
-npm run market:prune -- --apply      # 执行清理
+npm run search:query -- --explain "做伺服电机的公司"       # 只解析，不请求模型
+npm run search:query -- --retrieval-only "做伺服电机的公司" # 召回诊断，不调用 judge
+npm run telemetry:inspect -- <search_trace_id>             # 真实搜索的完整链路
 ```
 
-发布成功后自动尝试清理：保留最近 7 天、至少最新 2 份、当前快照、仍被 Web 读取的快照及它们引用的历史快照。发布与清理共用锁；损坏文件、缺失引用或锁冲突使清理中止，保留已发布结果。`data/market-runtime/` 是本地运行数据；本地冻结的 `data/market/` 基线不清理。两者均不进公开Git历史。
+质量改进逐条区分事实覆盖、候选召回、judge 判断、排序/展示与运行失败。工程测试通过不代表搜索好用，模型训练/升级也不能代替真实需求验收。旧行情代码、API、CLI 与快照留作 [独立维护](docs/MARKET_MAINTENANCE.md)，不再是产品发现功能；旧 benchmark 回放不能冒充当前产品入口的质量结果。
 
 ## Company Knowledge Corpus（发现索引的语义层）
 
@@ -175,12 +160,12 @@ npm run market:prune -- --apply      # 执行清理
 
 ## 数据底座：a-stock-data（refocus 后新增）
 
-公司页的市场快照 / 基础财务 / 最近公告 / 最近研报来自 [simonlin1212/a-stock-data](https://github.com/simonlin1212/a-stock-data)（Apache-2.0，vendor 快照钉在 `vendor/a-stock-data/`）：
+独立维护的市场快照 / 基础财务 / 公告 / 研报能力来自 [simonlin1212/a-stock-data](https://github.com/simonlin1212/a-stock-data)（Apache-2.0，vendor 快照钉在 `vendor/a-stock-data/`），已从公司页解除挂载：
 
 - **build-time 抽取**：`scripts/extract_stock_data.py` 按「唯一 `def` 块 + AST 剪示例」从 SKILL.md 机械抽取四类能力入口到 `services/stock-data/generated/`，绝不运行时解析 432 KB Markdown，绝不手抄函数。
 - **常驻薄服务**：`services/stock-data/server.py`（stdlib HTTP，:8920）做 canonical 6 位码归一、TTL 缓存、EMPTY / UNAVAILABLE / ERROR 三态分类——**没有数据 ≠ 数据源坏了**。
-- **数据契约**：`lib/stockdata/contracts.ts` 是 Web 侧唯一线格式；公司页按块如实降级，provenance（源 + 时间）轻量可见。
-- **克制原则**：底层 87 个能力入口存在，不构成展示它们的理由（refocus §四十六）——目前只暴露四类，新数据能力必须由真实使用需求驱动。
+- **数据契约**：`lib/stockdata/contracts.ts` 保留兼容线格式与失败语义；现有维护调用仍区分数据为空、未覆盖和服务故障。
+- **克制原则**：底层能力存在，不构成展示理由；当前产品只消费公司事实与搜索证据。
 
 ## 验收
 

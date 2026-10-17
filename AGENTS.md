@@ -1,12 +1,35 @@
 # A-Atlas｜A股星图
 
+## 搜索质量主线（2026-10-16，当前用户明确裁定）
+
+用户要求以搜索质量为主线，将行情等其他功能剥离。当前产品路径为：自然语言 → 公司事实检索 → 明确选择的 judge → 有证据支持的匹配 → 公司业务资料。此条覆盖下文历史行情发现、公司页行情/财务/资讯展示与 M1–M5 的产品范围，不撤销历史记录或改写原答案。
+
+- `/api/discover` 与 `/api/search` 共用 `lib/discovery/query.ts`，只执行公司业务、产品与关系发现。复用确定性 grammar 识别并拒绝行情排序/筛选及原有不支持意图，不删除条件后偷偷执行部分查询，不进入 `lib/hybrid/execute.ts` 或行情刷新/扫描。
+- 产品答案缓存只依赖 corpus、明确的 judge 身份、parser、`company-discovery-1` 与原查询；搜索入口、缓存与 discover telemetry 不读取行情快照或交易日历。查询原文（含大小写）不可混用缓存。
+- 模型明确 `matched=false`、缺判断或缺 evidenceRefs 的行不作为匹配公司展示，不为凑九张牌填充。judge 不可用时保留确定性检索并如实标 DEGRADED；不新增 judge 回落，不改模型分数或语料。
+- 公司页只展开原搜索记录/匹配证据、简介、主营产品与已有公司标签；不加载 K 线、报价、财务、公告或研报。作为证据来源的年报/公告/官网资料仍保留于 corpus，不能把去掉资讯展示理解为删除事实来源。历史行情答案仍可按原 trace 只读恢复，不刷新、不重算。
+- 行情 API、`lib/market/`、`lib/hybrid/execute.ts`、旧 CLI、Data service 与历史数据归兼容/维护；不进入发现主线，不扩功能、不自动刷新。保留 Web + Data 的现有受管启动/探活契约，未经配套验收不擅改 Harbor；这不构成搜索对 Data 行情的依赖。
+- 模型接入与 Laya 训练仍为独立支撑工作，不以接入成功、训练结束、测试全绿或旧 benchmark PASS 代替当前搜索质量。新增改动优先证明对真实失败的改善；逐项区分事实覆盖、候选召回、判断、排序/展示和运行失败。不加公司/行业/题目特判，不改写冻结评测题。
+- 日常入口：`npm run search:query -- --explain "业务描述"`（只解析）、`npm run search:query -- --retrieval-only "业务描述"`（只检索）、`search:inspect` 与 `telemetry:inspect`。旧 `hybrid:query` / `market:*` 仅维护；本轮 Cloud 调用为 0，后续 LIVE 仍须原有显式预算授权。
+
+实施边界、保留项与验证见 `docs/SEARCH_QUALITY_MAINLINE_2026_10_16.md`；旧行情操作见 `docs/MARKET_MAINTENANCE.md`。
+
+## 模型升级准备（2026-10-16）
+
+Jev 默认请求固定 `jev-1.13.0`；生产预期身份仍为 1.13，未验收不得改为 1.14。候选测量显式指定固定版本并登记 provider/model 与调用、USD 预算；本轮只做本地验证，Cloud 调用为 0。已核实 Jev 1.13/1.14 与 Drex 1.5/2.0 的官方输入 token 价格，新增费用估算只计输入，历史账本不重算，未知版本/本地计算成本保持 null。此条更新下文历史“Drex 价格未知 / 质量 runner 暂不支持”状态，不表示候选发现质量通过。流程见 `docs/JUDGE_MODEL_UPGRADE_2026_10_16.md`。
+
+
+
+## Drex 可选 judge（2026-10-13）
+
+用户明确授权 Drex 作为可选判断模型，经现有 `lib/intelligence/capabilities` 接入，与 Jev、Laya 显式选择且互不回落。Drex 使用 Nace SystemOne，服务端凭证 `NACE_API_KEY`，默认固定 `DREX_MODEL=drex-v1.5`；实际应答必须与固定请求版本一致。凭证和真实响应不进入公开历史。费用未知记 null；仅本地 mock 验证，不因接入宣布发现质量通过，不追加 Jev 或 Drex LIVE 验收。该明确需求解除历史 judge 冻结对此接入的限制，parser、corpus、证据、M3 与质量纪律继续适用。
 
 ## Atlas / Trawler 统一工程（2026-10-12）
 
 用户已授权并完成工程合并，唯一开发与运行入口为本目录；正式切换记录见 `docs/ATLAS_TRAWLER_MERGER_EXECUTION_STATUS_2026_10_12.md`。Laya 持续训练的目标是替代 Jev，质量目标尚未完成。此明确需求解除下文历史 Jev-only / Laya 归 trawler 的限制，其他 parser、事实、M3、冻结质量与小产品表面纪律继续适用。
 
-- Atlas owns facts; the explicitly selected judge owns judgement。统一 seam 为 `lib/intelligence/capabilities`，backend 只经该 seam 消费两个 adapter；components 零 intelligence import。
-- 每次请求只使用明确选择的 Jev 或 Laya，实际身份核验并固定；不得无声切换、混用缓存、篡改历史答案的模型/证据。
+- Atlas owns facts; the explicitly selected judge owns judgement。统一 seam 为 `lib/intelligence/capabilities`，backend 只经该 seam 消费明确选择的 adapter；components 零 intelligence import。
+- 每次请求只使用明确选择的 Jev、Drex 或 Laya，实际身份核验并固定；不得无声切换、混用缓存、篡改历史答案的模型/证据。
 - 核心运行时 Web 3400 + Data 8920，可选 Laya 8787；训练任务独立。Laya active 只来自私有 registry，不用 latest/hub 回落。
 - corpus 是唯一生产语义事实层。历史训练输入保留自己的模式与出处；标签来源、组隔离、精确恢复和独立质量准入必须如实记录。候选训练成功不等于 qualified。
 - 模型、训练状态、私有数据与真实响应不进入公开历史。总验收、Harbor 配套和回退演练齐全后才正式切换并停用旧入口；未通过时不宣布完成。

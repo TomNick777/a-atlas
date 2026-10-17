@@ -1,14 +1,13 @@
 import { lookupAnswerRecord } from "@/lib/atlas/discoverCache";
-import { DailyChart } from "@/components/company/DailyChart";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { datasetGeneratedAt, findCompany } from "@/lib/atlas/company";
 import { stockIdentity } from "@/lib/atlas/stockIdentity";
-import { judgeProfileEvidenceView } from "@/lib/atlas/evidence";
+import { recordedSearchContext } from "@/lib/atlas/searchContext";
+import { SearchContextSection } from "@/components/company/SearchContextSection";
 import { EvidenceSection } from "@/components/evidence/EvidenceSection";
 import { EvidenceWhy } from "@/components/evidence/EvidenceWhy";
-import { CompanyDataSections } from "@/components/CompanyDataSections";
 
 /** 公司页按请求渲染：URL 直接访问/刷新都恢复同一家公司（§十二.6）。 */
 export const dynamic = "force-dynamic";
@@ -57,19 +56,18 @@ export default async function StockPage({ params, searchParams }: Props) {
 
   const search = await searchParams;
   const query = typeof search.q === "string" ? search.q : "";
-  const record = lookupAnswerRecord(typeof search.s === "string" ? search.s : undefined, query);
-  const recordedJudgement = record?.answer.results.find(row => row.code === company.code)?.judgement;
+  const searchId = typeof search.s === "string" ? search.s : undefined;
+  // A query alone cannot identify the result of one particular search.
+  const record = searchId && query ? lookupAnswerRecord(searchId, query) : undefined;
+  const context = recordedSearchContext({ query, searchId, code: company.code, record });
+  const recordedJudgement = context.status === "available" ? context.judgement : null;
   const matchValue = recordedJudgement?.score ?? NaN;
   const matchPct = Number.isFinite(matchValue) && matchValue >= 0 && matchValue <= 1 ? Math.round(matchValue * 100) : null;
-  // Which capability judged this hit rides in the URL (match|relation): the
-  // relation label shown is the judged phrase itself, verbatim from the query.
+  // Capability and relation phrase come only from the recorded judgement.
   const isRelation = recordedJudgement?.capability === "semantic_relation";
   const capabilityLabel = isRelation ? "关系匹配" : "语义匹配";
   const generatedAt = datasetGeneratedAt()?.slice(0, 10) ?? null;
-  // Level 3 — Evidence Inspector facts (server-resolved, always the text Jev
-  // judged on). Surfaced only behind a real judgement from the URL; without
-  // one there is no claim to ground and the page keeps the plain query line.
-  const evidenceViews = query && recordedJudgement ? record?.evidence[company.code] ?? [] : [];
+  const evidenceViews = context.status === "available" ? context.evidence : [];
 
   return (
     <main className="mx-auto w-full max-w-3xl px-6 pb-16 pt-16">
@@ -101,28 +99,20 @@ export default async function StockPage({ params, searchParams }: Props) {
         </div>
       </header>
 
-      {query && matchPct !== null && (
+      <SearchContextSection context={context} />
+      {context.status === "available" && matchPct !== null && (
         <EvidenceSection
           query={query}
           capabilityLabel={capabilityLabel}
-          relationLabel={isRelation ? query : null}
+          relationLabel={isRelation ? recordedJudgement?.relationLabel ?? null : null}
           scorePct={matchPct}
           views={evidenceViews}
         >
-          {evidenceViews.length > 0 && <EvidenceWhy q={query} code={company.code} searchId={typeof search.s === "string" ? search.s : undefined} />}
+          {evidenceViews.length > 0 && <EvidenceWhy q={query} code={company.code} searchId={searchId} />}
         </EvidenceSection>
       )}
-      {query && matchPct === null && (
-        <div className="mt-5 rounded-[5px] border border-[#ecb03433] bg-[#ecb0340d] px-4 py-3">
-          <p className="text-[12px] uppercase tracking-[0.14em] text-[#b9954a]">为什么匹配本次搜索</p>
-          <p className="mt-1.5 text-[13.5px] leading-5 text-[#f4f1ea]">
-            来自发现页搜索「{query}」，本次结果由基础检索排序（无语义判断可依据）。
-          </p>
-        </div>
-      )}
 
-      {/* 公司卡展开：单页纵向阅读，无 Tab。市场快照/基础财务/公告/研报等数据块
-          由数据底座（services/stock-data）提供，在后续提交接入。 */}
+      {/* 公司卡只展开匹配证据与业务资料，不发起行情或资讯请求。 */}
       <div className="mt-8 flex flex-col gap-4">
         {company.companyDescription && (
           <Card title="公司简介">
@@ -146,11 +136,6 @@ export default async function StockPage({ params, searchParams }: Props) {
           )}
         </Card>
 
-        {/* 数据底座四块（refocus §七）：市场快照/基础财务/最近公告/最近研报，
-            分块如实降级，provenance 轻量可见。 */}
-        <DailyChart code={company.code} />
-        <CompanyDataSections symbol={company.code} />
-
         {company.concepts.length > 0 && (
           <Card title={`概念（${company.concepts.length}）`}>
             <div className="flex flex-wrap gap-1.5">
@@ -167,7 +152,7 @@ export default async function StockPage({ params, searchParams }: Props) {
         )}
 
         <p className="text-[11.5px] leading-4 text-[#6f6a5f]">
-          公司资料来自公司池快照{generatedAt ? `（数据截至 ${generatedAt}）` : ""}；行情/财务/公告/研报来自数据底座（a-stock-data，分源标注、如实降级）。
+          公司资料来自公司池快照{generatedAt ? `（数据截至 ${generatedAt}）` : ""}；匹配依据来自该次搜索保存的公司证据。
           公司发现不是投资建议。
         </p>
       </div>

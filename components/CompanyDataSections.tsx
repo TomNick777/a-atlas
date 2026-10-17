@@ -1,5 +1,6 @@
 import type { DataAvailability, DataProvenance, StockAnnouncements, StockFundamentals, StockQuote, StockResearchReports } from "@/lib/stockdata/contracts";
 import { fetchStockAnnouncements, fetchStockFundamentals, fetchStockQuote, fetchStockResearchReports } from "@/lib/stockdata/client";
+import { sourceTimeLabel } from "@/lib/atlas/searchContext";
 
 /**
  * 公司页数据段（refocus §七/§二十六/§三十二）：市场快照 / 基础财务 / 最近公告 /
@@ -7,12 +8,10 @@ import { fetchStockAnnouncements, fetchStockFundamentals, fetchStockQuote, fetch
  *
  * 三态如实渲染（§二十四）：empty=「暂无」、unavailable=「数据源不覆盖」、
  * error=「数据源暂时不可用」。把 error 渲染成「这家公司没有研报」是实现 bug。
- * provenance 以一行极轻的「腾讯 · 14:56」出现在每个数据块底部。
+ * provenance 标明来源与采集时点；报价另列源端时点，避免混用两种时间。
  */
 
 function Card({ title, children, provenance }: { title: string; children: React.ReactNode; provenance?: DataProvenance }) {
-  const at = provenance?.fetchedAt ? new Date(provenance.fetchedAt) : null;
-  const hhmm = at && !Number.isNaN(at.getTime()) ? `${String(at.getHours()).padStart(2, "0")}:${String(at.getMinutes()).padStart(2, "0")}` : null;
   return (
     <section className="overflow-hidden rounded-[5px] border border-white/10 bg-[#12140f]">
       <h2 className="border-b border-white/[0.07] px-4 py-2.5 text-[12px] font-medium uppercase tracking-[0.14em] text-[#8d887c]">{title}</h2>
@@ -20,8 +19,7 @@ function Card({ title, children, provenance }: { title: string; children: React.
         {children}
         {provenance && (
           <p className="mt-3 border-t border-white/[0.05] pt-2 text-[10.5px] text-[#5f5a50]">
-            {provenance.source}
-            {hhmm ? ` · ${hhmm}` : ""}
+            {provenance.source} · 采集于 {sourceTimeLabel(provenance.fetchedAt)}（北京时间）
           </p>
         )}
       </div>
@@ -39,15 +37,17 @@ function fmt(n: number | null | undefined, digits = 2): string {
   return typeof n === "number" && Number.isFinite(n) ? n.toFixed(digits) : "—";
 }
 
-function QuoteSection({ quote }: { quote: StockQuote }) {
+export function QuoteSection({ quote, hasSearchMarket = false }: { quote: StockQuote; hasSearchMarket?: boolean }) {
   const up = (quote.changePct ?? 0) > 0;
   const down = (quote.changePct ?? 0) < 0;
   return (
     <Card title="市场快照" provenance={quote}>
+      {hasSearchMarket && <p className="mb-2 text-[12px] leading-5 text-[#8d887c]">以下为公司页另行获取的行情，可能与上方原搜索快照不同。</p>}
       {quote.available !== "ok" ? (
         <HonestState block={quote} empty="暂无行情。" />
       ) : (
         <>
+          <p className="mb-2 text-[11.5px] text-[#8d887c]">源端时点：{sourceTimeLabel(quote.asOf)}{quote.asOf ? "（北京时间）" : ""}</p>
           <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
             <span className="text-[22px] tabular-nums text-[#f4f1ea]">{fmt(quote.price)}</span>
             {(up || down) && (
@@ -181,7 +181,7 @@ function ReportsSection({ r }: { r: StockResearchReports }) {
   );
 }
 
-export async function CompanyDataSections({ symbol }: { symbol: string }) {
+export async function CompanyDataSections({ symbol, hasSearchMarket = false }: { symbol: string; hasSearchMarket?: boolean }) {
   const [quote, fundamentals, announcements, reports] = await Promise.all([
     fetchStockQuote(symbol),
     fetchStockFundamentals(symbol),
@@ -190,7 +190,7 @@ export async function CompanyDataSections({ symbol }: { symbol: string }) {
   ]);
   return (
     <div className="flex flex-col gap-4">
-      <QuoteSection quote={quote} />
+      <QuoteSection quote={quote} hasSearchMarket={hasSearchMarket} />
       <FundamentalsSection f={fundamentals} />
       <AnnouncementsSection a={announcements} />
       <ReportsSection r={reports} />

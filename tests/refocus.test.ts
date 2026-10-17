@@ -85,10 +85,11 @@ describe("refocus — vibe removal invariant (§四十一)", () => {
   it("lib/atlas keeps only its frozen core modules", () => {
     // Phase 3.4 (Jev Evidence UX) added two Atlas-domain modules: the UI
     // evidence contract (evidence.ts) and the discover answer cache
-    // (discoverCache.ts). The set stays closed — new modules need a phase
-    // decision and this list to move.
+    // (discoverCache.ts). M5 added searchContext.ts for recorded evidence and
+    // ranks; the search-quality mainline retains that explicitly authorized seam.
+    // The set stays closed — new modules need an explicit product decision.
     const files = readdirSync(path.join(ROOT, "lib", "atlas")).sort();
-    expect(files).toEqual(["company.ts", "discoverCache.ts", "evidence.ts", "runtime.ts", "stockIdentity.ts"]);
+    expect(files).toEqual(["company.ts", "discoverCache.ts", "evidence.ts", "runtime.ts", "searchContext.ts", "stockIdentity.ts"]);
   });
 
   it("health contract answers as a-atlas-web with web+data components", async () => {

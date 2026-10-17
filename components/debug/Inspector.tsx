@@ -46,11 +46,11 @@ export function Inspector({ trace }: { trace: SearchTrace | null }) {
             </section>
           ))}
           <section>
-            <h3 className="text-[#e2c27a]">{trace.decidedBy === "jev" ? "Jev 相对召回的升降" : "本地排序相对召回的升降"}</h3>
+            <h3 className="text-[#e2c27a]">{trace.decidedBy === "retrieval" ? "检索排序" : trace.decidedBy} 相对召回的升降</h3>
             <ol className="mt-1 space-y-0.5">
               {trace.judged.slice(0, 12).map((row) => (
                 <li key={row.code}>
-                  {row.name} · {trace.decidedBy === "jev" ? "jev" : "本地"} {row.jev.toFixed(2)} · 召回 #{row.recallRank} · Δ{row.delta}
+                  {row.name} · {trace.decidedBy === "retrieval" ? "检索" : trace.decidedBy} {row.jev.toFixed(2)} · 召回 #{row.recallRank} · Δ{row.delta}
                 </li>
               ))}
             </ol>

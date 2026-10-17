@@ -62,7 +62,7 @@ export type SemanticOutcome = {
   matches: number;
   searchId: string | null;
   degraded: boolean;
-  decidedBy: "jev" | "laya" | "retrieval";
+  decidedBy: "jev" | "laya" | "drex" | "retrieval";
   judgeOutcome: string | null;
   intelligence?: SearchIntelligence;
   /** Live judgements by code (Phase 3.4); absent when the answer is degraded. */

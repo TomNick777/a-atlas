@@ -1,4 +1,4 @@
-import { currentJudgeId, judgeCacheIdentity } from "../runtime";
+import { currentJudgeId, judgeCacheIdentity, judgeCost } from "../runtime";
 /** Strict membership adapter over the existing match/relation capabilities.
  * It never changes judge prompts, retrieval or semantic ranking. Unknown is a
  * first-class state; median fills and the exact midpoint are never eligibility.
@@ -6,7 +6,6 @@ import { currentJudgeId, judgeCacheIdentity } from "../runtime";
  * independently of the market snapshot. No failed/unknown decision is cached. */
 import { createHash } from "node:crypto";
 import { jevProvider } from "../runtime";
-import { JEV_PRICE_PER_TOKEN } from "../contracts";
 import { runSemanticMatch } from "./semantic-match";
 import { runSemanticRelation } from "./semantic-relation";
 import { resolveJevCapability } from "./route";
@@ -16,7 +15,7 @@ import { MARKET_ELIGIBILITY_POLICY } from "./registry";
 
 export const MARKET_ELIGIBILITY_VERSION = MARKET_ELIGIBILITY_POLICY.version;
 export type EligibilityDecision = { companyId: string; state: "confirmed" | "rejected" | "unknown"; judgement: ResultJudgement | null };
-export type EligibilityBatch = { decisions: EligibilityDecision[]; cacheHits: number; estimatedCostUsd: number; call: SemanticMatchResult | SemanticRelationResult | null; intelligence?: SearchIntelligence; stopped?: "cost_budget" | "judge_unavailable" };
+export type EligibilityBatch = { decisions: EligibilityDecision[]; cacheHits: number; estimatedCostUsd: number | null; call: SemanticMatchResult | SemanticRelationResult | null; intelligence?: SearchIntelligence; stopped?: "cost_budget" | "judge_unavailable" };
 const cache = new Map<string, { at: number; decision: EligibilityDecision }>();
 const TTL = 6 * 60 * 60 * 1000;
 export function resetMarketEligibilityCache(): void { cache.clear(); }
@@ -26,7 +25,8 @@ const digest = (value: unknown) => createHash("sha256").update(JSON.stringify(va
  * answer allowance with retry margin; actual reported tokens settle each batch. */
 export function eligibilityAdmissionCost(query: string, subjects: JudgementSubject[]): number {
   if (currentJudgeId() === "laya") return 0;
-  return (2000 + subjects.reduce((n, s) => n + JSON.stringify(s).length + query.length + 2000, 0)) * 2 * JEV_PRICE_PER_TOKEN;
+  const tokens = (2000 + subjects.reduce((n, s) => n + JSON.stringify(s).length + query.length + 2000, 0)) * 2;
+  return judgeCost(tokens) ?? Number.POSITIVE_INFINITY;
 }
 
 export async function runMarketEligibility(query: string, subjects: JudgementSubject[], options: { signal?: AbortSignal; deadlineAt?: number; remainingEstimatedCostUsd: number; corpusDigest?: string }): Promise<EligibilityBatch> {
@@ -64,5 +64,5 @@ export async function runMarketEligibility(query: string, subjects: JudgementSub
   while (cache.size > 20000) cache.delete(cache.keys().next().value!);
   const runtimeModel = call?.runtimeModel ?? jevProvider().status().lastAnsweredModel;
   const live = call ? call.live : cacheHits === subjects.length;
-  return { decisions: subjects.map(s => decisions.get(s.companyId)!), cacheHits, estimatedCostUsd: call?.costUsd ?? 0, call, intelligence: { provider: live ? currentJudgeId() : "none", capability, contractVersion: contract, runtimeModel, degraded: !live }, ...(call && !call.live ? { stopped: "judge_unavailable" as const } : {}) };
+  return { decisions: subjects.map(s => decisions.get(s.companyId)!), cacheHits, estimatedCostUsd: call ? call.costUsd : 0, call, intelligence: { provider: live ? currentJudgeId() : "none", capability, contractVersion: contract, runtimeModel, degraded: !live }, ...(call && !call.live ? { stopped: "judge_unavailable" as const } : {}) };
 }

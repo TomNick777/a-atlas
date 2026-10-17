@@ -1,7 +1,7 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import type { JudgeProvider, JevOutcome } from "./contracts";
 
-export type ProviderId = "jev" | "laya";
+export type ProviderId = "jev" | "laya" | "drex";
 export type JudgeObservation = { outcome: JevOutcome; status: number | null; attempt: number; durationMs: number; kind: "rerank" | "classify"; at: number };
 export type JudgeContext = { provider: JudgeProvider; identity: string | null; requestedModel: string; artifactSha: string | null; observations: JudgeObservation[] };
 const state = globalThis as unknown as { __atlasJudgeContext?: AsyncLocalStorage<JudgeContext> };

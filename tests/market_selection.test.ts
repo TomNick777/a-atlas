@@ -66,10 +66,10 @@ describe("M3 ordered membership scan", () => {
   });
 });
 
-function transport(values: Record<string, unknown>, calls: unknown[], identity = "jev-stub", failure = false): JudgeProvider {
-  return { configured: () => true, status: () => ({ configured: true, model: identity, lastAnsweredModel: identity, endpoint: "in-process" }), async ask<T>(body: Record<string, unknown>) {
+function transport(values: Record<string, unknown>, calls: unknown[], identity = "jev-1.13.0", failure = false): JudgeProvider {
+  return { id: "jev", model: identity, configured: () => true, status: () => ({ configured: true, model: identity, lastAnsweredModel: identity, endpoint: "in-process" }), async ask<T>(body: Record<string, unknown>) {
     calls.push(body);
-    if (failure) return { ok: false, outcome: "timeout" };
+    if (failure) return { ok: false, outcome: "timeout", usage: { inputTokens: 0, outputTokens: 0 } };
     return { ok: true, data: { answers: values } as T, model: identity, outcome: "ok", usage: { inputTokens: 100, outputTokens: 10 } };
   } } as unknown as JudgeProvider;
 }
@@ -87,7 +87,7 @@ describe("M3 eligibility contract and fact cache", () => {
     expect((await runMarketEligibility("原文", subjects.slice(0, 1), opt)).decisions[0].state).toBe("unknown");
   });
   it("failed chunks cannot turn median fill into membership", async () => {
-    setJevProviderOverride(transport({}, [], "jev-stub", true));
+    setJevProviderOverride(transport({}, [], "jev-1.13.0", true));
     expect((await runMarketEligibility("原文", subjects, opt)).decisions.every(d => d.state === "unknown")).toBe(true);
   });
   it("cache survives market changes but invalidates facts/query/judge, and does not cache unknown", async () => {
@@ -97,7 +97,7 @@ describe("M3 eligibility contract and fact cache", () => {
     expect(cached.cacheHits).toBe(1); expect(cached.call).toBeNull(); expect(calls).toHaveLength(1);
     await runMarketEligibility("另一个原文", subjects.slice(0, 1), opt);
     await runMarketEligibility("原文", [{ ...subjects[0], evidence: [{ ref: "fact", text: "更新事实" }] }], opt);
-    setJevProviderOverride(transport({ c0: { noul: 0.9 } }, calls, "jev-other"));
+    setJevProviderOverride(transport({ c0: { noul: 0.9 } }, calls, "jev-1.14.0"));
     await runMarketEligibility("原文", subjects.slice(0, 1), opt); expect(calls).toHaveLength(4);
     await runMarketEligibility("原文", subjects.slice(0, 1), { ...opt, corpusDigest: "corpus-v2" }); expect(calls).toHaveLength(5);
     setJevProviderOverride(transport({}, calls));

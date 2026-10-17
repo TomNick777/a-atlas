@@ -1,5 +1,5 @@
 /**
- * JevCloudProvider — the only judgement provider A-Atlas has (Phase 4 §6).
+ * SystemOne cloud transport, defaulting to Jev (Phase 4 §6).
  *
  * Responsibilities the raw fetch did not have before this file:
  *   §8  the key is read server-side and never leaves this module;
@@ -12,9 +12,9 @@
  */
 import { jevBaseUrl, jevModel, typesafeKey } from "../../../env";
 import { judgeAttemptObservations } from "../../context";
+import { estimateInputCost } from "../../pricing";
 import {
   CircuitBreaker,
-  JEV_PRICE_PER_TOKEN,
   JEV_TIMING,
   RETRYABLE_OUTCOMES,
   isProviderFailure,
@@ -162,11 +162,20 @@ export type JevTimingOverrides = Partial<{
   halfOpenProbes: number;
 }>;
 
+/** Independent SystemOne adapters share transport, never credentials or state. */
+export type CloudConfig = {
+  id: "jev" | "drex";
+  model: () => string;
+  key: () => string | null;
+  endpoint: () => string;
+  requireModel?: boolean;
+};
+
 /** The measured defaults, or a test's fast clock. Same shape either way. */
 type Timing = Required<JevTimingOverrides>;
 
 export class JevCloudProvider implements JudgeProvider {
-  readonly id = "jev" as const;
+  readonly id: "jev" | "drex";
   readonly model: string;
 
   private readonly timing: Timing;
@@ -175,9 +184,11 @@ export class JevCloudProvider implements JudgeProvider {
   private counters = freshCounters();
   private readonly latencies: number[] = [];
   private lastAnsweredModel: string | null = null;
+  private estimatedCostUsd: number | null = 0;
 
-  constructor(overrides: JevTimingOverrides = {}) {
-    this.model = jevModel();
+  constructor(overrides: JevTimingOverrides = {}, private readonly config: CloudConfig = { id: "jev", model: jevModel, key: typesafeKey, endpoint: jevBaseUrl }) {
+    this.id = config.id;
+    this.model = config.model();
     this.timing = {
       connectMs: overrides.connectMs ?? JEV_TIMING.connectMs,
       requestMs: overrides.requestMs ?? JEV_TIMING.requestMs,
@@ -202,15 +213,15 @@ export class JevCloudProvider implements JudgeProvider {
   }
 
   configured(): boolean {
-    return typesafeKey() !== null;
+    return this.config.key() !== null;
   }
 
   status(): ProviderStatus {
     return {
-      provider: "jev",
+      provider: this.id,
       configured: this.configured(),
       model: this.model,
-      endpoint: jevBaseUrl().replace(/^https:\/\//, ""),
+      endpoint: this.config.endpoint().replace(/^https:\/\//, ""),
       breaker: this.breaker.snapshot(),
       lastAnsweredModel: this.lastAnsweredModel,
       inFlight: this.admission.inFlight,
@@ -222,7 +233,7 @@ export class JevCloudProvider implements JudgeProvider {
     const at = (f: number) => (sorted.length ? sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * f))] : null);
     return {
       ...this.counters,
-      estimatedCostUsd: Math.round((this.counters.inputTokens + this.counters.outputTokens) * JEV_PRICE_PER_TOKEN * 1e6) / 1e6,
+      estimatedCostUsd: this.counters.calls ? this.estimatedCostUsd : estimateInputCost(this.id, this.model, 0),
       latencyMs: { p50: at(0.5), p95: at(0.95), max: sorted.length ? sorted[sorted.length - 1] : null },
     };
   }
@@ -233,6 +244,7 @@ export class JevCloudProvider implements JudgeProvider {
     this.latencies.length = 0;
     this.breaker.reset();
     this.lastAnsweredModel = null;
+    this.estimatedCostUsd = 0;
   }
 
   breakerSnapshot(): BreakerSnapshot {
@@ -305,7 +317,7 @@ export class JevCloudProvider implements JudgeProvider {
     attempt: number,
     parentSignal?: AbortSignal,
   ): Promise<JevCall<T>> {
-    const key = typesafeKey();
+    const key = this.config.key();
     if (!key) return { ok: false, outcome: "no_config", status: null, attempt, latencyMs: 0, usage: NO_USAGE };
     const controller = new AbortController();
     let stage: "connect" | "request" = "connect";
@@ -320,10 +332,10 @@ export class JevCloudProvider implements JudgeProvider {
     const signal = parentSignal ? AbortSignal.any([controller.signal, parentSignal]) : controller.signal;
     const started = Date.now();
     try {
-      const response = await fetch(jevBaseUrl(), {
+      const response = await fetch(this.config.endpoint(), {
         method: "POST",
         headers: { authorization: `Bearer ${key}`, "content-type": "application/json" },
-        body: JSON.stringify({ model: this.model, ...body }),
+        body: JSON.stringify({ ...body, model: this.model }),
         signal,
       });
       clearTimeout(connectTimer);
@@ -347,6 +359,10 @@ export class JevCloudProvider implements JudgeProvider {
       }
       const latencyMs = Date.now() - started;
       const usage: JevUsage = { inputTokens: parsed.usage?.input_tokens ?? 0, outputTokens: parsed.usage?.output_tokens ?? 0 };
+      if ((this.config.requireModel || /^jev-\d/.test(this.model)) && parsed.model !== this.model) {
+        recordObservation({ outcome: "bad_response", status: 200, attempt, durationMs: latencyMs, kind });
+        return { ok: false, outcome: "bad_response", status: 200, attempt, latencyMs, usage };
+      }
       this.lastAnsweredModel = parsed.model ?? this.lastAnsweredModel;
       recordObservation({ outcome: "ok", status: response.status, attempt, durationMs: latencyMs, kind });
       return { ok: true, data: parsed as T, outcome: "ok", model: parsed.model ?? null, attempt, latencyMs, usage };
@@ -370,6 +386,10 @@ export class JevCloudProvider implements JudgeProvider {
 
   private finish<T>(call: JevCall<T>): JevCall<T> {
     this.counters.calls += 1;
+    // Settle each response at its own identity; later alias moves never reprice it.
+    const cost = call.ok ? estimateInputCost(this.id, call.model ?? "", call.usage.inputTokens)
+      : call.usage.inputTokens > 0 ? null : 0;
+    this.estimatedCostUsd = this.estimatedCostUsd === null || cost === null ? null : this.estimatedCostUsd + cost;
     if (call.ok) {
       this.counters.ok += 1;
       this.counters.inputTokens += call.usage.inputTokens;

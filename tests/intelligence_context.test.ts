@@ -46,13 +46,14 @@ describe("request-local judge contracts", () => {
   });
   it("retains every cloud retry observation inside its own request", async () => {
     vi.stubEnv("TYPESAFE_API_KEY", "offline-test-key");
+    vi.stubEnv("JEV_MODEL", "jev-1.13.0");
     const provider = new JevCloudProvider({ retryBaseMs: 5, retryCapMs: 10, rerankBudgetMs: 1000 });
     setJevProviderOverride(provider);
     let calls = 0;
     vi.stubGlobal("fetch", vi.fn(async (_url, options) => {
       if (++calls === 1) return Response.json({ error: "synthetic retry" }, { status: 500 });
       const body = JSON.parse(options.body);
-      return Response.json({ model: "jev-fixture", answers: Object.fromEntries(Object.keys(body.questions).map(key => [key, { noul: 0.9 }])), usage: { input_tokens: 5, output_tokens: 1 } });
+      return Response.json({ model: "jev-1.13.0", answers: Object.fromEntries(Object.keys(body.questions).map(key => [key, { noul: 0.9 }])), usage: { input_tokens: 5, output_tokens: 1 } });
     }));
     await withJudgeProvider("jev", async () => {
       expect((await runSemanticMatch({ query: "fixture", subjects })).live).toBe(true);

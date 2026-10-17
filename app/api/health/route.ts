@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
   let selected;
   try { selected = parseProvider(new URL(request.url).searchParams.get("provider") ?? undefined); }
-  catch { return Response.json({ error: "provider must be jev or laya" }, { status: 400 }); }
+  catch { return Response.json({ error: "provider must be jev, drex or laya" }, { status: 400 }); }
   const providers = await judgeProviders();
   return withJudgeProvider(selected, async () => {
   const data = await probeDataServiceHealth();

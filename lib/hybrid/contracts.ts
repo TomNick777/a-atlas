@@ -148,13 +148,13 @@ export type HybridExecutionTimings = {
 };
 
 export type HybridExecution = {
-  selection?: { scope: MarketSelectionScope; requested: number; pool: number; scanned: number; confirmed: number; unknown: number; cacheHits: number; batches: number; complete: boolean; stopped: string; budget: { maxScanned: number; maxBatches: number; maxMs: number; maxEstimatedCostUsd: number }; estimatedCostUsd: number };
+  selection?: { scope: MarketSelectionScope; requested: number; pool: number; scanned: number; confirmed: number; unknown: number; cacheHits: number; batches: number; complete: boolean; stopped: string; budget: { maxScanned: number; maxBatches: number; maxMs: number; maxEstimatedCostUsd: number }; estimatedCostUsd: number | null };
   order: ExecutionOrder;
   timings: HybridExecutionTimings;
   /** Judge unavailable → deterministic blend, honestly labelled (never a second judge). */
   degraded: boolean;
   degradedReason: string | null;
-  decidedBy: "jev" | "laya" | "retrieval" | "market" | null;
+  decidedBy: "jev" | "laya" | "drex" | "retrieval" | "market" | null;
   counts: {
     /** semantic-only/semantic-first: hits the discovery path returned. */
     semanticCandidates?: number;

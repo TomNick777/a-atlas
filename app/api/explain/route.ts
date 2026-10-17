@@ -224,7 +224,7 @@ export async function POST(request: Request) {
   const record = lookupAnswerRecord(typeof body?.searchId === "string" ? body.searchId : undefined, q);
   let provider;
   try { provider = parseProvider(body?.mode === "comparison" ? body.provider : record?.provider ?? "jev"); }
-  catch { return Response.json({ error: "请选择 Jev 或 Laya。" }, { status: 400 }); }
+  catch { return Response.json({ error: "请选择 Jev、Drex 或 Laya。" }, { status: 400 }); }
   try { return await withJudgeProvider(provider, () => explain(request), body?.mode === "comparison" ? undefined : record?.runtimeModel ?? undefined); }
   catch { return Response.json({ code: body?.code, evidence: record?.evidence[body?.code] ?? [], explanation: { status: "unavailable", reason: "original_model_unavailable", lines: [], runtimeModel: record?.runtimeModel ?? null, contractVersion: null }, cached: false }); }
 }

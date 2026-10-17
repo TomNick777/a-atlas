@@ -1,10 +1,10 @@
 "use client";
-export type JudgeChoice = "jev" | "laya";
+export type JudgeChoice = "jev" | "laya" | "drex";
 const KEY = "atlas-judge-provider";
 let sessionChoice: JudgeChoice = "jev";
 let sessionManualAt = 0;
 let sessionIntent: string | null = null;
-export function readJudgeChoice(): JudgeChoice { try { const value = localStorage.getItem(KEY); return value === "laya" || value === "jev" ? value : sessionChoice; } catch { return sessionChoice; } }
+export function readJudgeChoice(): JudgeChoice { try { const value = localStorage.getItem(KEY); return value === "laya" || value === "jev" || value === "drex" ? value : sessionChoice; } catch { return sessionChoice; } }
 export function subscribeJudgeChoice(callback: () => void) { window.addEventListener("storage", callback); window.addEventListener(KEY, callback); return () => { window.removeEventListener("storage", callback); window.removeEventListener(KEY, callback); }; }
 export function writeJudgeChoice(value: JudgeChoice, source: "manual" | "training" = "manual") {
   sessionChoice = value;

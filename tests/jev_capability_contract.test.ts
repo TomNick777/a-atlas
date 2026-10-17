@@ -138,7 +138,7 @@ describe("semantic_match contract", () => {
       expect(decision.evidenceRefs.every((ref) => ref.companyId === decision.companyId)).toBe(true);
     }
     expect(result.tokens).toBeGreaterThan(0);
-    expect(result.costUsd).toBeGreaterThan(0);
+    expect(result.costUsd).toBeNull(); // Synthetic identity has no published price.
   });
 
   it("empty subjects: no call, live ok, empty decisions", async () => {

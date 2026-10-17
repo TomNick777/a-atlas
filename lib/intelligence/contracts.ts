@@ -1,10 +1,9 @@
 /**
  * Jev Cloud provider contract (Phase 4 §6).
  *
- * A-Atlas has exactly one judgement provider: the Jev cloud. There is no local
- * fallback and there must never be one — a silent second judge is how a
- * degraded search starts looking healthy. When Jev cannot answer, the search
- * answers from deterministic retrieval and says so (§10/§11).
+ * Each request explicitly selects Jev, Drex or Laya. Providers never take over
+ * for each other. When the selected judge cannot answer, deterministic retrieval
+ * remains available and the search honestly reports degradation (§10/§11).
  *
  * Every number in JEV_TIMING comes from `npm run jev:baseline`
  * (reports/acceptance/jev_baseline.json), not from a guess.
@@ -49,7 +48,7 @@ export type BreakerSnapshot = {
 };
 
 export type ProviderStatus = {
-  provider: "jev" | "laya";
+  provider: "jev" | "laya" | "drex";
   configured: boolean;
   model: string;
   endpoint: string;
@@ -74,13 +73,13 @@ export type ProviderStats = {
   budgetExhausted: number;
   inputTokens: number;
   outputTokens: number;
-  estimatedCostUsd: number;
+  estimatedCostUsd: number | null;
   latencyMs: { p50: number | null; p95: number | null; max: number | null };
   localTiming?: { admittedCalls: number; queueMs: number; executionMs: number };
 };
 
 export type JudgeProvider = {
-  readonly id: "jev" | "laya";
+  readonly id: "jev" | "laya" | "drex";
   readonly model: string;
   configured(): boolean;
   status(): ProviderStatus;

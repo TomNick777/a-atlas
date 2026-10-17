@@ -7,7 +7,15 @@ export function typesafeKey(): string | null {
 }
 
 export function jevModel(): string {
-  return process.env.JEV_MODEL?.trim() || "jev-latest";
+  return process.env.JEV_MODEL?.trim() || "jev-1.13.0";
+}
+
+export function drexKey(): string | null {
+  return process.env.NACE_API_KEY?.trim() || null;
+}
+
+export function drexModel(): string {
+  return process.env.DREX_MODEL?.trim() || "drex-v1.5";
 }
 
 /** Characters of each company profile sent to Jev per finalist. */

@@ -60,7 +60,7 @@ async function askNoul(query: string, subjects: JudgementSubject[], options: { s
     "rerank",
     options,
   );
-  if (!call.ok) return { ok: false, scores: null, tokens: 0, model: null, outcome: call.outcome };
+  if (!call.ok) return { ok: false, scores: null, tokens: call.usage.inputTokens + call.usage.outputTokens, costUsd: call.usage.inputTokens > 0 ? null : judgeCost(0), model: null, outcome: call.outcome };
   const answers = call.data.answers ?? {};
   let unexpected = 0;
   const scores = subjects.map((_, index) => {
@@ -68,7 +68,7 @@ async function askNoul(query: string, subjects: JudgementSubject[], options: { s
     if (typeof noul !== "number" || !Number.isFinite(noul) || noul < 0 || noul > 1) { unexpected += 1; return 0.5; }
     return noul;
   });
-  return { ok: true, scores, tokens: call.usage.inputTokens + call.usage.outputTokens, model: call.model, outcome: "ok", unexpected, known: subjects.map((_, i) => { const n = answers[`c${i}`]?.noul; return typeof n === "number" && Number.isFinite(n) && n >= 0 && n <= 1; }) };
+  return { ok: true, scores, tokens: call.usage.inputTokens + call.usage.outputTokens, costUsd: judgeCost(call.usage.inputTokens, call.model), model: call.model, outcome: "ok", unexpected, known: subjects.map((_, i) => { const n = answers[`c${i}`]?.noul; return typeof n === "number" && Number.isFinite(n) && n >= 0 && n <= 1; }) };
 }
 
 /**
@@ -131,7 +131,7 @@ export async function runSemanticMatch(
     outcome: live ? null : outcome,
     runtimeModel: verdict.model,
     tokens: verdict.tokens,
-    costUsd: judgeCost(verdict.tokens),
+    costUsd: verdict.costUsd,
     timings,
     live,
     decisions,

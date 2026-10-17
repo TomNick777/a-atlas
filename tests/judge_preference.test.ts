@@ -4,8 +4,8 @@ afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 it("keeps an explicit choice when browser storage is unavailable", () => {
   vi.stubGlobal("localStorage", { getItem() { throw Error("unavailable"); }, setItem() { throw Error("unavailable"); } });
   vi.stubGlobal("window", { dispatchEvent: vi.fn() });
-  writeJudgeChoice("laya");
-  expect(readJudgeChoice()).toBe("laya");
+  writeJudgeChoice("drex");
+  expect(readJudgeChoice()).toBe("drex");
 });
 it("does not overwrite a newer manual choice with a delayed training directive", () => {
   const values = new Map<string, string>();

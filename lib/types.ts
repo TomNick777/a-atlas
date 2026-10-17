@@ -69,7 +69,7 @@ export type JudgedRow = {
 };
 
 export type SearchTrace = {
-  decidedBy: "retrieval" | "jev" | "laya";
+  decidedBy: "retrieval" | "jev" | "laya" | "drex";
   channels: Record<string, ChannelHit[]>;
   constraints: { province: string | null; dropIndustries: string[] };
   finalists: string[];
@@ -83,7 +83,7 @@ export type SearchTrace = {
  * to fall back to (Phase 4 §1), so retrieval alone decided the order.
  */
 export type JudgeReport = {
-  provider: "jev" | "laya" | "none";
+  provider: "jev" | "laya" | "drex" | "none";
   /** The model identity the cloud answered with, read from its response. */
   model: string | null;
   outcome:
@@ -140,7 +140,7 @@ export type ResultJudgement = {
  * always answer "which capability, which contract, which runtime model".
  */
 export type SearchIntelligence = {
-  provider: "jev" | "laya" | "none";
+  provider: "jev" | "laya" | "drex" | "none";
   capability: "semantic_match" | "semantic_relation";
   contractVersion: string;
   /** The model identity the cloud answered with — null when degraded. */
@@ -159,7 +159,7 @@ export type SearchResult = {
   judge: JudgeReport;
   tokens: number;
   costUsd: number | null;
-  decidedBy: "retrieval" | "jev" | "laya";
+  decidedBy: "retrieval" | "jev" | "laya" | "drex";
   /** Phase 3.3 — the capability envelope behind this answer. */
   intelligence?: SearchIntelligence;
   /** Phase 3.4 — live judgements by result code. Absent when degraded: the

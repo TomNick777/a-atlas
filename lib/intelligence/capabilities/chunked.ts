@@ -14,6 +14,7 @@ export type ChunkResult = {
   ok: boolean;
   scores: number[] | null;
   tokens: number;
+  costUsd: number | null;
   model: string | null;
   outcome: JevOutcome;
   /** Answers missing/unusable for known subjects (diagnostics §13). */
@@ -24,6 +25,7 @@ export type ChunkResult = {
 export type ChunkedVerdict = {
   scores: number[];
   tokens: number;
+  costUsd: number | null;
   live: boolean;
   outcome: JevOutcome;
   model: string | null;
@@ -41,7 +43,7 @@ export async function runChunked<T>(
   ask: (chunk: T[], options: { signal?: AbortSignal; deadlineAt?: number }) => Promise<ChunkResult>,
   options: { signal?: AbortSignal; deadlineAt?: number },
 ): Promise<ChunkedVerdict> {
-  if (!subjects.length) return { scores: [], tokens: 0, live: true, outcome: "ok", model: null, chunks: 0, answeredChunks: 0, unexpected: 0, judgeMs: 0, known: [] };
+  if (!subjects.length) return { scores: [], tokens: 0, costUsd: 0, live: true, outcome: "ok", model: null, chunks: 0, answeredChunks: 0, unexpected: 0, judgeMs: 0, known: [] };
   const parts: T[][] = [];
   for (let at = 0; at < subjects.length; at += chunkSize) parts.push(subjects.slice(at, at + chunkSize));
   const judgeStarted = performance.now();
@@ -56,6 +58,7 @@ export async function runChunked<T>(
     known: verdicts.flatMap((v, i) => parts[i].map((_, j) => Boolean(!identityDrift && v.ok && v.scores && (v.known?.[j] ?? true)))),
     scores: verdicts.flatMap((verdict, index) => (verdict.ok && verdict.scores ? verdict.scores : parts[index].map(() => middle))),
     tokens: verdicts.reduce((sum, verdict) => sum + verdict.tokens, 0),
+    costUsd: verdicts.some(v => v.costUsd === null) ? null : verdicts.reduce((sum, v) => sum + v.costUsd!, 0),
     live: !identityDrift && answered.length === verdicts.length,
     outcome: identityDrift ? "bad_response" : answered.length === verdicts.length ? "ok" : (failed?.outcome ?? "network_error"),
     model: answered[0]?.model ?? null,

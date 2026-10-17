@@ -83,10 +83,11 @@ describe("Jev Cloud provider — happy path", () => {
     const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
     expect(String(url)).toBe("https://api.typesafe.ai/v1/systemone");
     expect((init.headers as Record<string, string>).authorization).toBe(`Bearer ${KEY}`);
-    expect(JSON.parse(String(init.body))).toMatchObject({ model: "jev-latest", state: { looking_for: "银行" } });
+    expect(JSON.parse(String(init.body))).toMatchObject({ model: "jev-1.13.0", state: { looking_for: "银行" } });
   });
 
-  it("reports the model that answered, not the alias asked for", async () => {
+  it("reports the model that answered, not the explicitly requested alias", async () => {
+    vi.stubEnv("JEV_MODEL", "jev-latest");
     vi.stubGlobal("fetch", vi.fn(async () => okResponse({ model: "jev-1.99.0" })));
     const provider = providerWithKey();
     await provider.ask(body(), "rerank");

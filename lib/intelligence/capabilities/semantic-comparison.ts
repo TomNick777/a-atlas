@@ -52,7 +52,7 @@ async function askGraded(comparisonQuery: string, subjects: JudgementSubject[], 
     "rerank",
     options,
   );
-  if (!call.ok) return { ok: false, scores: null, tokens: 0, model: null, outcome: call.outcome };
+  if (!call.ok) return { ok: false, scores: null, tokens: call.usage.inputTokens + call.usage.outputTokens, costUsd: call.usage.inputTokens > 0 ? null : judgeCost(0), model: null, outcome: call.outcome };
   const answers = call.data.answers ?? {};
   let unexpected = 0;
   // Normalised to 0..1 so thresholds keep their meaning across capabilities.
@@ -62,7 +62,7 @@ async function askGraded(comparisonQuery: string, subjects: JudgementSubject[], 
     if (!valid) unexpected += 1;
     return valid ? grade / 3 : 0;
   });
-  return { ok: true, scores, tokens: call.usage.inputTokens + call.usage.outputTokens, model: call.model, outcome: "ok", unexpected };
+  return { ok: true, scores, tokens: call.usage.inputTokens + call.usage.outputTokens, costUsd: judgeCost(call.usage.inputTokens, call.model), model: call.model, outcome: "ok", unexpected };
 }
 
 /**
@@ -117,7 +117,7 @@ export async function runSemanticComparison(
     outcome: live ? null : outcome,
     runtimeModel: verdict.model,
     tokens: verdict.tokens,
-    costUsd: judgeCost(verdict.tokens),
+    costUsd: verdict.costUsd,
     timings,
     decisions,
     chunks: verdict.chunks,

@@ -107,7 +107,7 @@ export { classify } from "../classify";
 // Deterministic degradation blends — NOT judgement, always labelled degraded.
 export { mockScores, mockClassify } from "../mock";
 
-export { currentJudgeId, withJudgeProvider, parseProvider, judgeProviders } from "../runtime";
+export { currentJudgeId, expectedJudgeModel, withJudgeProvider, parseProvider, judgeProviders } from "../runtime";
 export { judgeCost as estimateJudgeCost } from "../runtime";
 export { ensureLayaRuntime } from "../providers/laya/start";
 export { trainingJudgeIntent } from "../training-intent";

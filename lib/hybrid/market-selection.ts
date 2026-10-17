@@ -13,6 +13,7 @@ export async function selectMarketMembers<T extends { code: string }>(
   const deadline = Date.now() + budget.maxMs;
   const selected: Array<{ row: T; decision: EligibilityDecision }> = [];
   let scanned = 0, unknown = 0, batches = 0, cacheHits = 0, cost = 0, stopped = "pool_exhausted";
+  let costKnown = true;
   for (let at = 0; at < pool.length;) {
     if (options.signal?.aborted) { stopped = "cancelled"; break; }
     if (Date.now() >= deadline) { stopped = "time_budget"; break; }
@@ -21,7 +22,7 @@ export async function selectMarketMembers<T extends { code: string }>(
     if (cost >= budget.maxEstimatedCostUsd) { stopped = "cost_budget"; break; }
     const batch = pool.slice(at, at + Math.min(budget.batchSize, budget.maxScanned - scanned));
     const result = await judge(batch, deadline, budget.maxEstimatedCostUsd - cost);
-    cacheHits += result.cacheHits; cost += result.estimatedCostUsd; batches++;
+    cacheHits += result.cacheHits; cost += result.estimatedCostUsd ?? 0; costKnown &&= result.estimatedCostUsd !== null; batches++;
     if (result.stopped === "cost_budget") { stopped = result.stopped; break; }
     scanned += batch.length; at += batch.length;
     for (const row of batch) {
@@ -34,5 +35,5 @@ export async function selectMarketMembers<T extends { code: string }>(
     if (result.stopped) { stopped = result.stopped; break; }
   }
   const complete = unknown === 0 && (stopped === "target_reached" || (stopped === "pool_exhausted" && scanned === pool.length));
-  return { selected, selection: { scope, requested, pool: pool.length, scanned, confirmed: selected.length, unknown, cacheHits, batches, complete, stopped, budget, estimatedCostUsd: cost } };
+  return { selected, selection: { scope, requested, pool: pool.length, scanned, confirmed: selected.length, unknown, cacheHits, batches, complete, stopped, budget, estimatedCostUsd: costKnown ? cost : null } };
 }

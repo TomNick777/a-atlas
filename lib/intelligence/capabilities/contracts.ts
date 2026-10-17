@@ -96,6 +96,7 @@ type CapabilityBase = {
   /** The cloud model that actually answered, read from the response — never config. */
   runtimeModel: string | null;
   tokens: number;
+  /** Published input-token price estimate, not an invoice; unknown/local stays null. */
   costUsd: number | null;
   timings: CapabilityTimings;
 };

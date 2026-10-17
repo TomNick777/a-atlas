@@ -1,17 +1,19 @@
 import { cloudProvider, drainSystemOneObservations as cloudObservations } from "./providers/jev/cloud";
 import { LayaProvider } from "./providers/laya/provider";
+import { getDrexProvider } from "./providers/drex/provider";
 import { judgeContext, currentJudgeContext, judgeAttemptObservations, type JudgeObservation, type ProviderId } from "./context";
-import { JEV_PRICE_PER_TOKEN, JEV_TIMING, type BudgetKind, type JudgeProvider } from "./contracts";
+import { JEV_TIMING, JEV_PRODUCTION_MODEL, type BudgetKind, type JudgeProvider } from "./contracts";
+import { estimateInputCost } from "./pricing";
 export { JevCloudProvider, getJevCloudProvider, setJevProviderOverride } from "./providers/jev/cloud";
 export type { SystemOneResponse, SystemOneObservation, JevTimingOverrides } from "./providers/jev/cloud";
 const state = globalThis as unknown as { __atlasLaya?: LayaProvider };
 export const getLayaProvider = () => state.__atlasLaya ??= new LayaProvider();
 export function parseProvider(value: unknown): ProviderId {
   const id = value ?? process.env.ATLAS_JUDGE_PROVIDER ?? "jev";
-  if (id !== "jev" && id !== "laya") throw new Error("provider must be jev or laya");
+  if (id !== "jev" && id !== "laya" && id !== "drex") throw new Error("provider must be jev, drex or laya");
   return id;
 }
-function baseProvider(id: ProviderId): JudgeProvider { return id === "laya" ? getLayaProvider() : cloudProvider(); }
+function baseProvider(id: ProviderId): JudgeProvider { return id === "laya" ? getLayaProvider() : id === "drex" ? getDrexProvider() : cloudProvider(); }
 export async function withJudgeProvider<T>(id: unknown, operation: () => Promise<T>, expectedIdentity?: string): Promise<T> {
   const provider = baseProvider(parseProvider(id));
   if (provider.id === "laya") await getLayaProvider().refreshIdentity(true);
@@ -21,6 +23,10 @@ export async function withJudgeProvider<T>(id: unknown, operation: () => Promise
   return judgeContext.run({ provider, identity: expectedIdentity ?? identity, requestedModel: status.model, artifactSha: status.artifactSha ?? null, observations: [] }, operation);
 }
 export function currentJudgeId(): ProviderId { return jevProvider().id; }
+export function expectedJudgeModel(): string {
+  const provider = jevProvider();
+  return provider.id === "jev" ? JEV_PRODUCTION_MODEL : provider.status().lastAnsweredModel ?? provider.model;
+}
 export function jevProvider(): JudgeProvider {
   const context = currentJudgeContext();
   const provider = context?.provider ?? baseProvider(parseProvider(undefined));
@@ -45,9 +51,13 @@ export function drainSystemOneObservations(since: number) {
   if (!context) return cloudObservations(since);
   const rows = context.observations.filter(row => row.at >= since); context.observations.splice(0); return rows;
 }
-export const judgeCost = (tokens: number): number | null => currentJudgeId() === "laya" || !tokens ? null : Math.round(tokens * JEV_PRICE_PER_TOKEN * 1e6) / 1e6;
+/** Input tokens only; total token counts remain available separately. */
+export const judgeCost = (inputTokens: number, actualModel?: string | null): number | null => {
+  const provider = jevProvider();
+  return estimateInputCost(provider.id, actualModel ?? provider.model, inputTokens);
+};
 export const judgeTiming = () => currentJudgeId() === "laya" ? { ...JEV_TIMING, rerankBudgetMs: 12000, classifyBudgetMs: 6000 } : JEV_TIMING;
 export async function judgeProviders() {
   await getLayaProvider().refreshIdentity();
-  return [cloudProvider(), getLayaProvider()].map(provider => { const s = provider.status(); return { id: provider.id, configured: s.configured, model: s.lastAnsweredModel, artifactSha: s.artifactSha ?? null, breaker: s.breaker.state, localResources: s.localResources ?? null, localTiming: provider.stats().localTiming ?? null }; });
+  return [cloudProvider(), getDrexProvider(), getLayaProvider()].map(provider => { const s = provider.status(); return { id: provider.id, configured: s.configured, model: s.lastAnsweredModel, artifactSha: s.artifactSha ?? null, breaker: s.breaker.state, localResources: s.localResources ?? null, localTiming: provider.stats().localTiming ?? null }; });
 }

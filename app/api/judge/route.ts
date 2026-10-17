@@ -10,7 +10,7 @@ export async function POST(request: Request) {
   if (origin && expectedOrigin !== origin) return Response.json({ error: "来源不匹配。" }, { status: 403 });
   const body = await request.json().catch(() => null);
   let provider;
-  try { provider = parseProvider(body?.provider); } catch { return Response.json({ error: "请选择 Jev 或 Laya。" }, { status: 400 }); }
+  try { provider = parseProvider(body?.provider); } catch { return Response.json({ error: "请选择 Jev、Drex 或 Laya。" }, { status: 400 }); }
   try {
     if (provider === "laya") await ensureLayaRuntime();
     return Response.json({ providers: await judgeProviders() }, { headers: { "cache-control": "no-store" } });

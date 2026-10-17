@@ -225,7 +225,7 @@ def switch_model(target, rollback=False):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("command", choices=["doctor", "start", "stop", "serve", "status", "data", "train", "resume", "cancel", "evaluate", "promote", "rollback"])
-    parser.add_argument("--provider", choices=["jev", "laya"], default="jev")
+    parser.add_argument("--provider", choices=["jev", "drex", "laya"], default="jev")
     parser.add_argument("--config"); parser.add_argument("--init"); parser.add_argument("--run")
     parser.add_argument("--mode", choices=["corpus", "legacy"]); parser.add_argument("--manifest")
     parser.add_argument("--candidate"); parser.add_argument("--to")
@@ -233,6 +233,8 @@ def main():
     args = parser.parse_args()
     if args.command in ("train", "resume") and not any(value == "--provider" or value.startswith("--provider=") for value in sys.argv[1:]):
         parser.error("train/resume require --provider jev (switch and release inference) or --provider laya (wait for inference)")
+    if args.command in ("train", "resume") and args.provider == "drex":
+        parser.error("Drex is a discovery judge only; train/resume require jev or laya")
     if args.run and not args.run.replace("-", "").replace("_", "").isalnum():
         raise ValueError("Invalid run ID")
     if args.command in ("start", "stop", "serve", "train", "resume", "cancel", "evaluate", "promote", "rollback"):
@@ -262,7 +264,7 @@ def execute(args):
             started.append("data"); wait_ready("data", 8920, "a-atlas-data")
             web = ROOT / "node_modules/next/dist/bin/next"
             no_proxy = ",".join(filter(None, (os.environ.get("NO_PROXY") or os.environ.get("no_proxy"), "127.0.0.1,localhost,::1")))
-            launch("web", ["node", web, "start", "--port", "3400"], web, ["3400"], 3400, env={"NODE_ENV": "production", "ATLAS_DATA_URL": "http://127.0.0.1:8920", "NODE_USE_ENV_PROXY": "1", "NO_PROXY": no_proxy})
+            launch("web", ["node", web, "start", "--port", "3400"], web, ["3400"], 3400, env={"ATLAS_JUDGE_PROVIDER": args.provider, "NODE_ENV": "production", "ATLAS_DATA_URL": "http://127.0.0.1:8920", "NODE_USE_ENV_PROXY": "1", "NO_PROXY": no_proxy})
             started.append("web"); wait_ready("web", 3400, "a-atlas-web", "/api/health")
             if args.provider == "laya":
                 serve()

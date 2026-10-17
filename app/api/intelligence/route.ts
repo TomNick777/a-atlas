@@ -7,6 +7,9 @@ import {
   runSemanticComparison,
   runJevJudgement,
   subjectsOf,
+  currentJudgeId,
+  parseProvider,
+  withJudgeProvider,
   type EvidenceExplanationRequest,
   type JudgementSubject,
 } from "@/lib/intelligence/capabilities";
@@ -34,6 +37,7 @@ import {
  */
 
 type Body = {
+  provider?: unknown;
   capability?: unknown;
   query?: unknown;
   relationQuery?: unknown;
@@ -71,7 +75,7 @@ function subjectsFromBody(body: Body, codes: string[] | null): JudgementSubject[
   return subjects;
 }
 
-export async function POST(request: Request) {
+async function execute(request: Request) {
   const body = ((await request.json().catch(() => null)) as Body | null) ?? {};
   const capability = typeof body?.capability === "string" ? body.capability : "";
   if (!isRegisteredJevCapability(capability)) {
@@ -98,7 +102,7 @@ export async function POST(request: Request) {
       return Response.json({ error: "evidence_explanation 需要 userQuery、judgement.companyId 与非空 evidence。" }, { status: 400 });
     }
     const result = await runEvidenceExplanation({ userQuery, judgement, evidence });
-    return Response.json({ intelligence: { provider: result.status === "ok" ? "jev" : "none", capability, contractVersion: result.contractVersion, runtimeModel: result.runtimeModel }, result });
+    return Response.json({ intelligence: { provider: result.status === "ok" ? currentJudgeId() : "none", capability, contractVersion: result.contractVersion, runtimeModel: result.runtimeModel }, result });
   }
 
   if (capability === "semantic_comparison") {
@@ -108,7 +112,7 @@ export async function POST(request: Request) {
     if (!subjects) return Response.json({ error: "semantic_comparison 需要 codes（≥2）或完整 subjects。" }, { status: 400 });
     if (subjects.length < 2) return Response.json({ error: "比较至少需要两个对象。" }, { status: 400 });
     const result = await runSemanticComparison({ comparisonQuery, subjects });
-    return Response.json({ intelligence: { provider: result.status === "ok" ? "jev" : "none", capability, contractVersion: result.contractVersion, runtimeModel: result.runtimeModel }, result });
+    return Response.json({ intelligence: { provider: result.status === "ok" ? currentJudgeId() : "none", capability, contractVersion: result.contractVersion, runtimeModel: result.runtimeModel }, result });
   }
 
   // semantic_match / semantic_relation — deterministically routed by the query.
@@ -119,7 +123,7 @@ export async function POST(request: Request) {
   const result = await runJevJudgement(query, subjects);
   return Response.json({
     intelligence: {
-      provider: result.status === "ok" ? "jev" : "none",
+      provider: result.status === "ok" ? currentJudgeId() : "none",
       capability: result.capability,
       contractVersion: result.contractVersion,
       runtimeModel: result.runtimeModel,
@@ -127,4 +131,12 @@ export async function POST(request: Request) {
     },
     result,
   });
+}
+
+export async function POST(request: Request) {
+  const body = await request.clone().json().catch(() => null);
+  let provider;
+  try { provider = parseProvider(body?.provider); }
+  catch { return Response.json({ error: "请选择 Jev、Drex 或 Laya。" }, { status: 400 }); }
+  return withJudgeProvider(provider, () => execute(request));
 }

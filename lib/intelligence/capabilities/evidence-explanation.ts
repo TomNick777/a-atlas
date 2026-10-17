@@ -48,7 +48,7 @@ async function askSupport(request: EvidenceExplanationRequest, evidence: { ref: 
     "rerank",
     options,
   );
-  if (!call.ok) return { ok: false, scores: null, tokens: 0, model: null, outcome: call.outcome };
+  if (!call.ok) return { ok: false, scores: null, tokens: call.usage.inputTokens + call.usage.outputTokens, costUsd: call.usage.inputTokens > 0 ? null : judgeCost(0), model: null, outcome: call.outcome };
   const answers = call.data.answers ?? {};
   let unexpected = 0;
   const scores = evidence.map((_, index) => {
@@ -57,7 +57,7 @@ async function askSupport(request: EvidenceExplanationRequest, evidence: { ref: 
     if (!valid) unexpected += 1;
     return valid ? noul : 0;
   });
-  return { ok: true, scores, tokens: call.usage.inputTokens + call.usage.outputTokens, model: call.model, outcome: "ok", unexpected };
+  return { ok: true, scores, tokens: call.usage.inputTokens + call.usage.outputTokens, costUsd: judgeCost(call.usage.inputTokens, call.model), model: call.model, outcome: "ok", unexpected };
 }
 
 /**
@@ -106,7 +106,7 @@ export async function runEvidenceExplanation(
     outcome: live ? null : outcome,
     runtimeModel: verdict.model,
     tokens: verdict.tokens,
-    costUsd: judgeCost(verdict.tokens),
+    costUsd: verdict.costUsd,
     timings,
     insufficientEvidence: live && lines.length === 0,
     lines,

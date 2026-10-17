@@ -128,7 +128,7 @@ export function sourceHealth(windowMs = 60_000) {
  */
 export function healthOf(input: { dataReachable: boolean; dataVersion?: string | null; dataError?: string | null }) {
   const { status } = jevJudgeRuntime();
-  const identity = status.provider === "laya" ? { status: status.configured && status.artifactSha ? "verified" : "unconfigured" } : verifyJudgeIdentity(status.lastAnsweredModel, status.configured);
+  const identity = status.provider === "laya" ? { status: status.configured && status.artifactSha ? "verified" : "unconfigured" } : verifyJudgeIdentity(status.lastAnsweredModel, status.configured, status.provider);
   const upstream = upstreamStats();
   const sources = sourceHealth();
 

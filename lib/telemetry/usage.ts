@@ -114,7 +114,7 @@ export async function buildUsageSummary(store: TelemetryStore, range: UsageRange
   const judges: UsageSummary["judges"] = {};
   for (const call of allJudgeCalls) {
     const provider = String(call.payload.provider ?? "jev");
-    const bucket = judges[provider] ??= { calls: 0, tokens: 0, cloudCostUsd: provider === "jev" ? 0 : null, runtimeModels: [] };
+    const bucket = judges[provider] ??= { calls: 0, tokens: 0, cloudCostUsd: provider === "jev" || provider === "drex" ? 0 : null, runtimeModels: [] };
     bucket.calls++; bucket.tokens += num(call.payload.tokens) ?? 0;
     if (bucket.cloudCostUsd !== null) { const cost = num(call.payload.costUsd); bucket.cloudCostUsd = cost === null ? null : bucket.cloudCostUsd + cost; }
     const model = call.payload.runtimeModel;

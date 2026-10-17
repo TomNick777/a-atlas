@@ -4,7 +4,7 @@ import { exec, execSync } from "node:child_process";
 import path from "node:path";
 import { ensureContext, setContext } from "./context";
 import { PRODUCTION_CONTRACT, manifestIsStale, manifestStampOf, verifyJudgeIdentity } from "./contract";
-import { getJevCloudProvider, identityProbe, currentJudgeId, jevJudgeRuntime, judgeProviders } from "../intelligence/capabilities";
+import { identityProbe, expectedJudgeModel, currentJudgeId, jevJudgeRuntime, judgeProviders } from "../intelligence/capabilities";
 import type { ProviderStats, ProviderStatus } from "../intelligence/capabilities";
 import { emit, emitIncident, buildEnvelope, currentRuntime } from "./emit";
 import { newAppRunId } from "./ids";
@@ -187,12 +187,11 @@ export async function probeJudgeIdentity(): Promise<JudgeProbeOutcome> {
     const snapshot = jevJudgeRuntime();
     return { ...snapshot, verdict: { status: snapshot.status.configured && snapshot.status.lastAnsweredModel ? "verified" : "unavailable", expectedModel: snapshot.status.lastAnsweredModel ?? "registered local artifact", actualModel: snapshot.status.lastAnsweredModel, reason: snapshot.status.configured ? null : "local service unavailable" } };
   }
-  const provider = getJevCloudProvider();
   await identityProbe();
+  const snapshot = jevJudgeRuntime();
   return {
-    verdict: verifyJudgeIdentity(provider.status().lastAnsweredModel, provider.configured()),
-    status: provider.status(),
-    stats: provider.stats(),
+    verdict: verifyJudgeIdentity(snapshot.status.lastAnsweredModel, snapshot.status.configured, snapshot.status.provider as "jev" | "drex"),
+    ...snapshot,
   };
 }
 
@@ -359,7 +358,7 @@ export async function initRuntime(store: TelemetryStore = defaultStore): Promise
     judgeIdentity: jev?.verdict.status ?? "unknown",
     actualJudgeModel: jev?.verdict.actualModel ?? null,
     expectedJudgeModel: jev?.verdict.expectedModel ?? PRODUCTION_CONTRACT.judgeModel,
-    judgeProvider: jev?.status.configured ? "jev" : "none",
+    judgeProvider: jev?.status.configured ? currentJudgeId() : "none",
     breakerState: jev?.status.breaker.state ?? "closed",
     dataReachable: data.ok,
     dataVersion: data.version,
@@ -443,7 +442,7 @@ export async function beat(store: TelemetryStore = defaultStore, idlePauseMs = 3
     dataVersion: data.version,
     dataLatencyMs: data.latencyMs,
     actualJudgeModel: jevStatus.lastAnsweredModel,
-    expectedJudgeModel: PRODUCTION_CONTRACT.judgeModel,
+    expectedJudgeModel: expectedJudgeModel(),
     knowledgeVersion: diskManifest.knowledgeVersions,
     profileSha16: state.profileSha16,
     vectorsSha16: state.vectorsSha16,

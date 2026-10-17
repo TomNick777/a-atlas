@@ -264,7 +264,7 @@ export async function searchResponseReady(input: ResponseEvidence): Promise<Resp
   if (input.breakerState === "open") {
     await emitIncident("CIRCUIT_OPEN", { searchId: input.searchId, stage: "jev", timeouts: input.rerankTimeouts, errors: input.rerankErrors }, { searchId: input.searchId, severity: "warning", store: input.store });
   }
-  if (input.judge.provider === "jev" && input.actualJudgeModel && input.actualJudgeModel !== input.expectedJudgeModel) {
+  if ((input.judge.provider === "jev" || input.judge.provider === "drex") && input.actualJudgeModel && input.actualJudgeModel !== input.expectedJudgeModel) {
     await emitIncident("MODEL_IDENTITY_MISMATCH", { searchId: input.searchId, expectedJudgeModel: input.expectedJudgeModel, actualJudgeModel: input.actualJudgeModel }, { searchId: input.searchId, severity: "error", store: input.store });
   }
   if (input.rerankTimeouts > 0) {

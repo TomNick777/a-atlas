@@ -10,7 +10,7 @@
  * exactly the drift this file exists to name.
  */
 
-import { jevModel } from "../env";
+import { jevModel, drexModel } from "../env";
 import { JEV_PRODUCTION_MODEL } from "../intelligence/capabilities";
 import { CORPUS_SCHEMA_VERSION } from "../corpus/contracts";
 
@@ -41,12 +41,12 @@ export type JudgeIdentityVerdict = {
  * answered at all. Drift means the cloud served a different model under our
  * alias — reportable, and the reason a pinned JEV_MODEL exists.
  */
-export function verifyJudgeIdentity(answeredModel: string | null, configured: boolean): JudgeIdentityVerdict {
-  const expected = PRODUCTION_CONTRACT.judgeModel;
-  if (!configured) return { status: "unavailable", expectedModel: expected, actualModel: null, reason: "no Jev key configured — Discover runs degraded by design" };
+export function verifyJudgeIdentity(answeredModel: string | null, configured: boolean, provider: "jev" | "drex" = "jev"): JudgeIdentityVerdict {
+  const expected = provider === "drex" ? drexModel() : PRODUCTION_CONTRACT.judgeModel;
+  if (!configured) return { status: "unavailable", expectedModel: expected, actualModel: null, reason: `no ${provider === "jev" ? "Jev" : "Drex"} key configured — Discover runs degraded by design` };
   if (!answeredModel) return { status: "unavailable", expectedModel: expected, actualModel: null, reason: "no successful judge call yet" };
   if (answeredModel === expected) return { status: "verified", expectedModel: expected, actualModel: answeredModel, reason: null };
-  return { status: "drift", expectedModel: expected, actualModel: answeredModel, reason: `Jev answered with ${answeredModel}, production contract expects ${expected}` };
+  return { status: "drift", expectedModel: expected, actualModel: answeredModel, reason: `${provider} answered with ${answeredModel}, production contract expects ${expected}` };
 }
 
 export type ManifestStamp = {
